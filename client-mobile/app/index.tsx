@@ -1,7 +1,8 @@
 import { theme } from "@/constants/theme";
+import { useAuth } from "@/context/AuthContext";
 import { useReports } from "@/context/ReportContext";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import {
     SafeAreaView,
     StyleSheet,
@@ -12,7 +13,12 @@ import {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { isLoggedIn } = useAuth();
   const { reports } = useReports();
+
+  if (!isLoggedIn) {
+    return <Redirect href="/login" />;
+  }
 
   const pendingCount = reports.filter((r) => r.status === "beklemede").length;
   const reviewCount = reports.filter((r) => r.status === "inceleniyor").length;

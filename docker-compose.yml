@@ -1,12 +1,64 @@
+version: '3.8'
+
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: infrareport
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  service-core:
+    build:
+      context: ./service-core
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: infrareport
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: dev-secret-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./service-core/src:/app/src
+      - /app/node_modules
+
   client-mobile:
     build:
       context: ./client-mobile
       dockerfile: Dockerfile
     ports:
       - "8081:8081"
+    environment:
+      EXPO_DEVTOOLS_LISTEN_ADDRESS: 0.0.0.0
+      # IP adresini artık .env dosyasından otomatik çekecek
+      EXPO_PUBLIC_API_BASE_URL: http://192.168.0.8:3000/api
+      REACT_NATIVE_PACKAGER_HOSTNAME: 192.168.0.8
+    stdin_open: true
+    tty: true
+    depends_on:
+      - service-core
     volumes:
       - ./client-mobile:/app
       - /app/node_modules
-    environment:
-      - EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0
+
+volumes:
+  pgdata:
