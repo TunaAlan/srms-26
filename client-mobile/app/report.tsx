@@ -40,6 +40,7 @@ export default function ReportScreen() {
     address: string;
   } | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     getLocation();
@@ -110,12 +111,9 @@ export default function ReportScreen() {
 
   const selectedCat = CATEGORIES.find((c) => c.id === category);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!image) {
-      Alert.alert(
-        "Fotoğraf Gerekli",
-        "Lütfen soruna ait bir fotoğraf ekleyin.",
-      );
+      Alert.alert("Fotoğraf Gerekli", "Lütfen soruna ait bir fotoğraf ekleyin.");
       return;
     }
     if (!category) {
@@ -127,7 +125,8 @@ export default function ReportScreen() {
       return;
     }
 
-    addReport({
+    setSubmitting(true);
+    const success = await addReport({
       image,
       description,
       category,
@@ -136,12 +135,17 @@ export default function ReportScreen() {
       longitude: location?.longitude || 0,
       address: location?.address || "Bilinmeyen",
     });
+    setSubmitting(false);
 
-    Alert.alert(
-      "Bildirim Gönderildi!",
-      "Bildiriminiz başarıyla kaydedildi. Teşekkürler.",
-      [{ text: "Tamam", onPress: () => router.replace("/history" as any) }],
-    );
+    if (success) {
+      Alert.alert(
+        "Bildirim Gönderildi!",
+        "Bildiriminiz başarıyla kaydedildi. Teşekkürler.",
+        [{ text: "Tamam", onPress: () => router.replace("/history" as any) }],
+      );
+    } else {
+      Alert.alert("Hata", "Bildirim gönderilemedi. Tekrar deneyin.");
+    }
   };
 
   return (
@@ -289,13 +293,20 @@ export default function ReportScreen() {
       <TouchableOpacity
         style={[
           styles.submitBtn,
-          (!image || !description.trim() || !category) && styles.submitDisabled,
+          (!image || !description.trim() || !category || submitting) && styles.submitDisabled,
         ]}
         onPress={handleSubmit}
+        disabled={submitting}
         activeOpacity={0.85}
       >
-        <Ionicons name="send" size={18} color="#fff" />
-        <Text style={styles.submitText}>Bildir</Text>
+        {submitting ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <>
+            <Ionicons name="send" size={18} color="#fff" />
+            <Text style={styles.submitText}>Bildir</Text>
+          </>
+        )}
       </TouchableOpacity>
 
       <View style={{ height: 40 }} />

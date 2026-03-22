@@ -12,30 +12,77 @@ export interface Report {
   longitude: number;
   address: string;
   timestamp: number;
-  status: 'beklemede' | 'inceleniyor' | 'cozuldu';
+  status: 'beklemede' | 'inceleniyor' | 'cozuldu' | 'reddedildi';
   criticality: 'kritik' | 'yuksek' | 'orta' | 'dusuk';
 }
 
 export interface CreateReportRequest {
-  image: string;
+  image: string; // local URI
   description: string;
-  category: string;
-  categoryLabel: string;
   latitude: number;
   longitude: number;
-  address: string;
 }
 
 export interface CreateReportResponse {
   id: string;
-  message: string;
 }
 
 export interface ReportsApiClient {
   getReports: () => Promise<Report[]>;
   getReport: (id: string) => Promise<Report>;
   createReport: (data: CreateReportRequest) => Promise<CreateReportResponse>;
-  updateReportStatus: (id: string, status: string) => Promise<Report>;
+}
+
+
+const CATEGORY_MAP: Record<string, string> = {
+  road_damage: 'yol',
+  sidewalk_damage: 'yol',
+  infrastructure: 'yol',
+  traffic_sign: 'yol',
+  sewage_water: 'su',
+  waste: 'cop',
+  pollution: 'cop',
+  green_space: 'park',
+  lighting: 'elektrik',
+  vandalism: 'diger',
+  stray_animal: 'diger',
+  natural_disaster: 'diger',
+  normal: 'diger',
+  irrelevant: 'diger',
+};
+
+function mapPriority(priority: string | null): Report['criticality'] {
+  if (!priority) return 'dusuk';
+  const p = priority.toLowerCase();
+  if (p.includes('critical') || p.includes('5')) return 'kritik';
+  if (p.includes('high') || p.includes('4')) return 'yuksek';
+  if (p.includes('medium') || p.includes('3')) return 'orta';
+  return 'dusuk';
+}
+
+function mapReportFromApi(r: Record<string, any>): Report {
+  const STATUS_MAP: Record<string, Report['status']> = {
+    pending: 'beklemede',
+    approved: 'cozuldu',
+    rejected: 'reddedildi',
+    redirected: 'inceleniyor',
+  };
+
+  const filename = r.imagePath ? r.imagePath.split('/').pop() : null;
+
+  return {
+    id: r.id,
+    image: filename ? `${ENV.API_BASE_URL}/reports/images/${filename}` : '',
+    description: r.aiDescription || r.description || '',
+    category: CATEGORY_MAP[r.aiCategory] || 'diger',
+    categoryLabel: r.aiUnit || r.aiCategory || 'Diğer',
+    latitude: r.latitude || 0,
+    longitude: r.longitude || 0,
+    address: r.aiUnit || '',
+    timestamp: new Date(r.createdAt).getTime(),
+    status: STATUS_MAP[r.status] || 'beklemede',
+    criticality: mapPriority(r.aiPriority),
+  };
 }
 
 class ReportsApiClientImpl implements ReportsApiClient {
@@ -44,10 +91,9 @@ class ReportsApiClientImpl implements ReportsApiClient {
   constructor() {
     this.client = axios.create({
       baseURL: ENV.API_BASE_URL,
-      timeout: 10000,
+      timeout: 30000,
     });
 
-    // Add auth interceptor
     this.client.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
       const authClient = getApiClient();
       const token = await authClient.getAuthToken();
@@ -59,27 +105,29 @@ class ReportsApiClientImpl implements ReportsApiClient {
   }
 
   async getReports(): Promise<Report[]> {
-    try {
-      // This endpoint will be created in the backend
-      const response = await this.client.get<Report[]>('/reports');
-      return response.data;
-    } catch (error) {
-      return [];
-    }
+    const response = await this.client.get<Record<string, any>[]>('/reports/my');
+    return response.data.map(mapReportFromApi);
   }
 
   async getReport(id: string): Promise<Report> {
-    const response = await this.client.get<Report>(`/reports/${id}`);
-    return response.data;
+    const response = await this.client.get<Record<string, any>>(`/reports/${id}`);
+    return mapReportFromApi(response.data);
   }
 
   async createReport(data: CreateReportRequest): Promise<CreateReportResponse> {
-    const response = await this.client.post<CreateReportResponse>('/reports', data);
-    return response.data;
-  }
+    const formData = new FormData();
+    formData.append('image', {
+      uri: data.image,
+      type: 'image/jpeg',
+      name: 'photo.jpg',
+    } as any);
+    formData.append('description', data.description);
+    formData.append('latitude', String(data.latitude));
+    formData.append('longitude', String(data.longitude));
 
-  async updateReportStatus(id: string, status: string): Promise<Report> {
-    const response = await this.client.patch<Report>(`/reports/${id}`, { status });
+    const response = await this.client.post<CreateReportResponse>('/reports', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   }
 }
