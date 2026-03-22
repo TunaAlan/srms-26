@@ -8,51 +8,24 @@ export const seedDatabase = async () => {
     await db.sequelize.sync({ alter: true });
     console.log('✓ Database synced');
 
-    // Clear existing data
-    await db.User.destroy({ where: {} });
-    console.log('✓ Cleared existing user data');
-
-    // Seed test users
-    const testUsers: Array<{
-      name: string;
-      email: string;
-      password: string;
-      role: 'user' | 'admin' | 'department';
-    }> = [
-      {
-        name: 'Admin User',
-        email: 'admin@ankara.bel.tr',
-        password: 'admin123',
-        role: 'admin',
-      },
-      {
-        name: 'Department User',
-        email: 'department@ankara.bel.tr',
-        password: 'dept123',
-        role: 'department',
-      },
-      {
-        name: 'Regular User 1',
-        email: 'user1@ankara.bel.tr',
-        password: 'user123',
-        role: 'user',
-      },
-      {
-        name: 'Regular User 2',
-        email: 'user2@ankara.bel.tr',
-        password: 'user123',
-        role: 'user',
-      },
-      {
-        name: 'Regular User 3',
-        email: 'user3@ankara.bel.tr',
-        password: 'user123',
-        role: 'user',
-      },
+    // Seed test users only if they don't exist yet
+    const testUsers = [
+      { name: 'Admin User',      email: 'admin@ankara.bel.tr',      password: 'admin123', role: 'admin' as const },
+      { name: 'Department User', email: 'department@ankara.bel.tr', password: 'dept123',  role: 'department' as const },
+      { name: 'Regular User 1', email: 'user1@ankara.bel.tr',      password: 'user123',  role: 'user' as const },
+      { name: 'Regular User 2', email: 'user2@ankara.bel.tr',      password: 'user123',  role: 'user' as const },
+      { name: 'Regular User 3', email: 'user3@ankara.bel.tr',      password: 'user123',  role: 'user' as const },
     ];
 
-    const createdUsers = await db.User.bulkCreate(testUsers);
-    console.log(`✓ Created ${createdUsers.length} test users`);
+    let created = 0;
+    for (const u of testUsers) {
+      const exists = await db.User.findOne({ where: { email: u.email } });
+      if (!exists) {
+        await db.User.create(u as any, { hooks: true } as any);
+        created++;
+      }
+    }
+    console.log(`✓ Seeded ${created} new users (skipped existing)`);
 
     console.log('\n📋 Test Accounts:');
     console.log('================');

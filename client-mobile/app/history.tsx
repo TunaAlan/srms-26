@@ -18,6 +18,11 @@ const STATUS_CONFIG: Record<
     label: "Çözüldü",
     icon: "checkmark-circle",
   },
+  reddedildi: {
+    color: theme.colors.critical,
+    label: "Reddedildi",
+    icon: "close-circle",
+  },
 };
 
 const CRITICALITY_CONFIG: Record<string, { color: string; label: string }> = {

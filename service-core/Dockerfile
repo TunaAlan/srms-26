@@ -15,8 +15,8 @@ COPY src ./src
 # Build TypeScript
 RUN npm run build
 
-# Remove dev dependencies to reduce image size
-RUN npm prune --production
+# Reinstall only production dependencies
+RUN npm ci --omit=dev
 
 # Expose port
 EXPOSE 3000

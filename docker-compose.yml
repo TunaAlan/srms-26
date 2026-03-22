@@ -39,6 +39,8 @@ services:
         condition: service_healthy
     volumes:
       - ./service-core/src:/app/src
+      - ./client-admin/app/admin:/app/public/admin
+      - uploads:/app/uploads
       - /app/node_modules
 
   client-mobile:
@@ -62,3 +64,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:
