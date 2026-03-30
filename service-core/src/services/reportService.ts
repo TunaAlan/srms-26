@@ -89,3 +89,8 @@ export async function reviewReport(id: string, input: ReviewInput): Promise<Repo
   });
   return report;
 }
+
+export async function deleteReport(id: string): Promise<void> {
+  const report = await getReportById(id);
+  await report.destroy();
+}

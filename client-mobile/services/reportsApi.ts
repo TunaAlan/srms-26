@@ -6,6 +6,8 @@ export interface Report {
   id: string;
   image: string;
   description: string;
+  userDescription: string;
+  aiDescription: string;
   category: string;
   categoryLabel: string;
   latitude: number;
@@ -74,6 +76,8 @@ function mapReportFromApi(r: Record<string, any>): Report {
     id: r.id,
     image: filename ? `${ENV.API_BASE_URL}/reports/images/${filename}` : '',
     description: r.aiDescription || r.description || '',
+    userDescription: r.description || '',
+    aiDescription: r.aiDescription || '',
     category: CATEGORY_MAP[r.aiCategory] || 'diger',
     categoryLabel: r.aiUnit || r.aiCategory || 'Diğer',
     latitude: r.latitude || 0,

@@ -1,5 +1,15 @@
 # SRMS - Infrastructure Report Management System
 
+## Project Description
+
+SRMS is a citizen-facing infrastructure reporting platform. Users can report issues such as road damage, broken sidewalks, and sewage problems by submitting a photo and GPS location via a mobile app. Reports are automatically analyzed by an AI service that assigns a category, priority level, and description. Administrators can review all reports on an interactive map through a web-based admin panel.
+
+The user interface is in **Turkish**, as the target audience is Turkish municipal staff and local citizens.
+
+**Flow: Citizen → Mobile App → Backend API → AI Analysis → Admin Panel → Relevant Municipal Department**
+
+---
+
 ## Architecture Overview
 
 ```
@@ -14,15 +24,18 @@
 │  └──────────────────────┘         └──────────────────────┘ │
 │       • Auth Context                    • Auth Routes       │
 │       • Reports Context                 • JWT + Tokens      │
-│       • API Client                      • Database Sync     │
-│       • Secure Storage                                      │
-│                                   ┌──────────────────────┐ │
-│                                   │  PostgreSQL Database │ │
-│                                   │  • Users             │ │
-│                                   │  • Reports (future)  │ │
-│                                   └──────────────────────┘ │
+│       • Camera + Location               • Report Routes     │
+│       • Image Upload                    • AI Integration    │
+│                                         • File Upload       │
+│  ┌──────────────────────┐         ┌──────────────────────┐ │
+│  │   Admin Panel (HTML) │────────▶│  PostgreSQL Database │ │
+│  │   Leaflet Maps       │         │  • Users             │ │
+│  │   Cluster Markers    │         │  • Reports           │ │
+│  └──────────────────────┘         └──────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+---
 
 ## Project Structure
 
@@ -37,30 +50,35 @@ SRMS-26/
 │   ├── test/              # Testing utilities
 │   ├── package.json
 │   ├── tsconfig.json
-│   ├── .env.development   # Dev environment
-│   ├── .env.test          # Test environment
+│   ├── .env.development.example  # Dev environment template
 │   └── Dockerfile
+│
+├── client-admin/          # Admin Panel (plain HTML + Leaflet.js)
+│   └── app/admin/
+│       └── index.html     # Single-page admin interface, served at /admin
 │
 ├── service-core/          # Node.js Backend API (TypeScript + ESM)
 │   ├── src/
 │   │   ├── config/        # Database & environment config
-│   │   ├── models/        # Sequelize models
+│   │   ├── models/        # Sequelize models (User, Report)
 │   │   ├── controllers/   # Request handlers
 │   │   ├── routes/        # API routes
-│   │   ├── services/      # Business logic
+│   │   ├── services/      # Business logic + AI integration
 │   │   ├── middleware/    # Auth, error handling
+│   │   ├── scripts/       # Seed data
 │   │   ├── app.ts         # Express setup
 │   │   └── server.ts      # Server entry point
-│   ├── dist/              # Compiled JavaScript (generated)
 │   ├── package.json
 │   ├── tsconfig.json
 │   ├── .env.example
-│   ├── .env.test          # Test environment
 │   └── Dockerfile
 │
-├── docker-compose.yml     # Container orchestration
-└── API_TESTING_GUIDE.md   # API testing documentation
+├── .env.example            # Environment variables template
+├── docker-compose.yml      # Container orchestration
+└── API_TESTING_GUIDE.md    # API testing documentation
 ```
+
+---
 
 ## Stack
 
@@ -72,154 +90,104 @@ SRMS-26/
 - **Secure Storage**: expo-secure-store
 - **Navigation**: expo-router
 
+### Admin Panel
+- **Technology**: Plain HTML + Vanilla JavaScript
+- **Maps**: Leaflet.js + MarkerCluster plugin
+- **Served by**: Backend at `/admin` via `express.static`
+
 ### Backend
 - **Runtime**: Node.js 20
 - **Framework**: Express.js
 - **Language**: TypeScript (ESM modules)
 - **ORM**: Sequelize
 - **Database**: PostgreSQL
-- **Authentication**: JWT (jsonwebtoken)
-- **Security**: Bcrypt, Helmet, CORS
+- **Authentication**: JWT
+- **AI**: Gradio API integration
+- **File Upload**: Multer
 
 ### DevOps
-- **Containerization**: Docker
-- **Orchestration**: Docker Compose
+- **Containerization**: Docker + Docker Compose
 - **Database**: PostgreSQL 16 Alpine
+
+---
 
 ## Quick Start
 
-### Using Docker Compose (Recommended)
+> For detailed setup instructions see [QUICK_START.md](QUICK_START.md).
+
+**Requires:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
 ```bash
-# Start all services
+git clone https://github.com/TunaAlan/srms-26.git
+cd srms-26
+cp .env.example .env        # set HOST_IP to your local IP
 docker-compose up --build
-
-# Services:
-# - Backend: http://localhost:3000
-# - Mobile: http://localhost:8081
-# - Database: localhost:5432
 ```
 
-### Local Development
+| Service | URL |
+|---------|-----|
+| Admin Panel | http://localhost:3000/admin |
+| Backend API | http://localhost:3000/api |
+| Database | localhost:5433 |
 
-#### Backend Setup
+Admin login: `admin@ankara.bel.tr` / `admin123`
 
-```bash
-cd service-core
-npm install
-cp .env.example .env
-npm run dev          # Starts with TypeScript watch
-```
-
-#### Mobile App Setup
-
-```bash
-cd client-mobile
-npm install
-npm start            # Starts Expo metro bundler
-```
-
-## Database
-
-- Auto-migrates on backend startup via Sequelize
-- PostgreSQL with Docker
-- Test data: See [API Testing Guide](API_TESTING_GUIDE.md)
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login with credentials
-- `GET /api/auth/me` - Get current user profile
-
-### Health Check
-- `GET /health` - Backend health status
-
-For complete API testing guide, see [API_TESTING_GUIDE.md](API_TESTING_GUIDE.md).
+---
 
 ## Key Features
 
 ### Mobile App
 - ✅ User authentication with JWT
-- ✅ Secure token storage
-- ✅ Context-based state management
-- ✅ Report management (data layer ready)
-- ✅ Criticality level analysis
-- ✅ Offline report caching
+- ✅ Report creation with photo and GPS location
+- ✅ AI-powered report analysis (category, priority, description)
+- ✅ Report history listing
 
 ### Backend API
-- ✅ JWT authentication
-- ✅ Password hashing with bcrypt
-- ✅ Role-based access (user, admin, department)
-- ✅ Automated database synchronization
-- ✅ Error handling middleware
-- ✅ CORS enabled
+- ✅ JWT authentication with role-based access (user, admin, department)
+- ✅ File upload with persistent volume storage
+- ✅ AI service integration (Gradio API)
+- ✅ Admin panel static serving at `/admin`
 
-## Authentication Flow
+### Admin Panel
+- ✅ Interactive map with clustered report markers (Leaflet.js)
+- ✅ Category-based filtering
+- ✅ Report detail view (user and AI descriptions separately)
+- ✅ User management
 
-1. **User Registration/Login** → Backend validates credentials
-2. **JWT Generation** → Token stored in SecureStore
-3. **API Requests** → Authorization header with token
-4. **Token Expiry** → Auto-logout and redirect to login
-5. **Session Persistence** → Token restored on app restart
+---
 
-## Testing
+## API Endpoints
 
-### Manual API Testing
-```bash
-# Register
-curl -X POST http://localhost:3000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Test","email":"test@test.com","password":"test123"}'
+### Authentication
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
 
-# Login
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@test.com","password":"test123"}'
+### Reports
+- `POST /api/reports` — Create report (photo + location)
+- `GET /api/reports/my` — Current user's reports
+- `GET /api/reports` — All reports (admin/department)
+- `GET /api/reports/:id` — Single report
+- `PATCH /api/reports/:id/review` — Review report (admin/department)
 
-# Get Profile
-curl http://localhost:3000/api/auth/me \
-  -H "Authorization: Bearer <token>"
-```
+### Other
+- `GET /health` — Health check
+- `GET /api/reports/images/:filename` — Serve uploaded image
 
-See [API_TESTING_GUIDE.md](API_TESTING_GUIDE.md) for comprehensive testing guide.
+For full API reference see [API_TESTING_GUIDE.md](API_TESTING_GUIDE.md).
 
-## Environment Variables
-
-### Backend (service-core/.env)
-```
-NODE_ENV=development
-PORT=3000
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=infrareport
-DB_USER=postgres
-DB_PASSWORD=postgres
-JWT_SECRET=your-secret-key
-JWT_EXPIRES_IN=7d
-```
-
-### Mobile (client-mobile/.env.development)
-```
-EXPO_PUBLIC_API_BASE_URL=http://localhost:3000/api
-NODE_ENV=development
-```
-
-## Development Workflow
-
-1. **Backend Changes**: Auto-reload with `npm run dev`
-2. **Mobile Changes**: Hot reload with Expo
-3. **Database**: Auto-sync via Sequelize
-4. **Testing**: See [API_TESTING_GUIDE.md](API_TESTING_GUIDE.md)
+---
 
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| Port already in use | Kill process: `lsof -i :<port> && kill -9 <PID>` |
-| DB connection failed | Check DB_HOST (.env) and Docker containers running |
-| CORS errors | Verify EXPO_PUBLIC_API_BASE_URL is correct |
-| Token invalid | Clear secure storage and re-login |
+| Port already in use | `lsof -i :<port>` → `kill -9 <PID>` |
+| DB connection failed | `docker ps` — check containers are running |
+| Mobile can't reach backend | Use local IP in `.env.development`, not `localhost` |
+| Admin panel not opening | Backend must be running: `curl http://localhost:3000/health` |
+
+---
 
 ## License
 
@@ -227,8 +195,6 @@ Internal use only.
 
 ## Related Documentation
 
-- [API Testing Guide](API_TESTING_GUIDE.md) - Detailed API testing
-- [service-core README](service-core/README.md) - Backend documentation
-- [Expo Documentation](https://docs.expo.dev/)
-- [Sequelize Documentation](https://sequelize.org/)
-
+- [Quick Start Guide](QUICK_START.md)
+- [API Testing Guide](API_TESTING_GUIDE.md)
+- [Backend README](service-core/README.md)

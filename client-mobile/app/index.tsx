@@ -3,7 +3,11 @@ import { useAuth } from "@/context/AuthContext";
 import { useReports } from "@/context/ReportContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useRouter } from "expo-router";
+import { useState } from "react";
 import {
+    Alert,
+    Modal,
+    Pressable,
     SafeAreaView,
     StyleSheet,
     Text,
@@ -13,8 +17,23 @@ import {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user, logout } = useAuth();
   const { reports } = useReports();
+  const [accountVisible, setAccountVisible] = useState(false);
+
+  const handleLogout = () => {
+    Alert.alert("Çıkış Yap", "Hesabınızdan çıkmak istiyor musunuz?", [
+      { text: "İptal", style: "cancel" },
+      {
+        text: "Çıkış Yap",
+        style: "destructive",
+        onPress: async () => {
+          setAccountVisible(false);
+          await logout();
+        },
+      },
+    ]);
+  };
 
   if (!isLoggedIn) {
     return <Redirect href="/login" />;
@@ -35,9 +54,15 @@ export default function HomeScreen() {
                 Altyapı Bildirim Sistemi
               </Text>
             </View>
-            <View style={styles.logo}>
-              <Ionicons name="shield-checkmark" size={32} color="#FFFFFF" />
-            </View>
+            <TouchableOpacity
+              style={styles.avatar}
+              onPress={() => setAccountVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.avatarText}>
+                {user?.name?.charAt(0).toUpperCase() ?? "?"}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -140,6 +165,34 @@ export default function HomeScreen() {
 
         <Text style={styles.footer}>Ankara Büyükşehir Belediyesi</Text>
       </View>
+
+      <Modal
+        visible={accountVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAccountVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setAccountVisible(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalAvatar}>
+                <Text style={styles.modalAvatarText}>
+                  {user?.name?.charAt(0).toUpperCase() ?? "?"}
+                </Text>
+              </View>
+              <View style={styles.modalUserInfo}>
+                <Text style={styles.modalName}>{user?.name}</Text>
+                <Text style={styles.modalEmail}>{user?.email}</Text>
+              </View>
+            </View>
+            <View style={styles.modalDivider} />
+            <TouchableOpacity style={styles.modalLogout} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={20} color={theme.colors.danger} />
+              <Text style={styles.modalLogoutText}>Çıkış Yap</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -194,13 +247,86 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.75)",
     marginTop: 2,
   },
-  logo: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "rgba(255,255,255,0.15)",
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.4)",
+  },
+  avatarText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-start",
+    alignItems: "flex-end",
+    paddingTop: 100,
+    paddingRight: 16,
+  },
+  modalCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: 16,
+    width: 260,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    gap: 12,
+  },
+  modalAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.primaryLight,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalAvatarText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: theme.colors.primary,
+  },
+  modalUserInfo: {
+    flex: 1,
+  },
+  modalName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: theme.colors.text,
+  },
+  modalEmail: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginHorizontal: 16,
+  },
+  modalLogout: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 16,
+  },
+  modalLogoutText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: theme.colors.danger,
   },
   statsContainer: {
     paddingHorizontal: 24,

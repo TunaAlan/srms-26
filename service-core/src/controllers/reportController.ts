@@ -80,6 +80,17 @@ export const getReportById = async (req: Request, res: Response, next: NextFunct
 };
 
 
+//ADMIN ONLY
+export const deleteReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    await reportService.deleteReport(String(req.params.id));
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+};
+
+
 //ADMIN (DESKTOP) + DEPARTMENT (EMPLOYEE)
 export const reviewReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {

@@ -1,5 +1,6 @@
 import { createContext, ReactNode, useContext, useState, useEffect } from "react";
 import { getReportsApiClient } from "@/services/reportsApi";
+import { useAuth } from "@/context/AuthContext";
 
 export type CriticalityLevel = "kritik" | "yuksek" | "orta" | "dusuk";
 export type ReportStatus = "beklemede" | "inceleniyor" | "cozuldu" | "reddedildi";
@@ -37,10 +38,15 @@ export function ReportProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const reportsApi = getReportsApiClient();
+  const { isLoggedIn } = useAuth();
 
   useEffect(() => {
-    fetchReports();
-  }, []);
+    if (isLoggedIn) {
+      fetchReports();
+    } else {
+      setReports([]);
+    }
+  }, [isLoggedIn]);
 
   const fetchReports = async () => {
     try {

@@ -58,9 +58,22 @@ function ReportCard({ item }: { item: any }) {
             {getTimeAgo(new Date(item.timestamp))}
           </Text>
         </View>
-        <Text style={styles.description} numberOfLines={2}>
-          {item.description}
-        </Text>
+        {item.userDescription ? (
+          <View style={styles.descBlock}>
+            <Text style={styles.descLabel}>Açıklamanız:</Text>
+            <Text style={styles.description} numberOfLines={2}>
+              {item.userDescription}
+            </Text>
+          </View>
+        ) : null}
+        {item.aiDescription ? (
+          <View style={styles.descBlock}>
+            <Text style={styles.descLabelAi}>AI Analizi:</Text>
+            <Text style={styles.description} numberOfLines={2}>
+              {item.aiDescription}
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.locationRow}>
           <Ionicons
             name="location-outline"
@@ -165,11 +178,26 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   timeText: { fontSize: 12, color: theme.colors.textTertiary },
+  descBlock: {
+    marginBottom: 4,
+  },
+  descLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: theme.colors.textSecondary,
+    marginBottom: 2,
+  },
+  descLabelAi: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: theme.colors.primary,
+    marginBottom: 2,
+  },
   description: {
     fontSize: 14,
     color: theme.colors.text,
     lineHeight: 20,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   locationRow: {
     flexDirection: "row",

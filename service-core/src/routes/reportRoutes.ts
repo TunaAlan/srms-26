@@ -45,4 +45,7 @@ router.get('/:id', authenticate, reportController.getReportById);
 // Staff: review decision (approve / reject / redirect)
 router.patch('/:id/review', authenticate, authorize('admin', 'department'), reportController.reviewReport);
 
+// Admin: delete a report
+router.delete('/:id', authenticate, authorize('admin'), reportController.deleteReport);
+
 export default router;

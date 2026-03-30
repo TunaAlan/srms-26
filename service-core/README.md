@@ -14,6 +14,10 @@ Express.js REST API built with TypeScript (ESM), featuring JWT authentication, P
 - ✅ CORS enabled
 - ✅ Request logging with Morgan
 - ✅ Security headers with Helmet
+- ✅ Report CRUD endpoints
+- ✅ File upload with Multer (persistent Docker volume)
+- ✅ AI service integration (Gradio API)
+- ✅ Admin panel static serving at `/admin`
 
 ## Quick Start
 
@@ -68,14 +72,20 @@ src/
 │   └── env.ts             # Environment variables
 ├── models/
 │   ├── User.ts            # User model (with hooks for password hashing)
+│   ├── Report.ts          # Report model (with AI fields)
 │   └── index.ts           # Model exports
 ├── controllers/
-│   └── authController.ts  # Authentication request handlers
+│   ├── authController.ts  # Authentication request handlers
+│   └── reportController.ts # Report request handlers
 ├── routes/
 │   ├── authRoutes.ts      # Auth endpoints
+│   ├── reportRoutes.ts    # Report endpoints (with Multer upload)
 │   └── index.ts           # Route aggregation
 ├── services/
-│   └── authService.ts     # Business logic (login, register, etc)
+│   ├── authService.ts     # Business logic (login, register, etc)
+│   └── aiService.ts       # Gradio AI API integration
+├── scripts/
+│   └── seed.ts            # Seed test users and sample reports
 ├── middleware/
 │   ├── auth.ts            # JWT verification and RBAC
 │   └── errorHandler.ts    # Global error handler
@@ -152,6 +162,74 @@ Response:
 }
 ```
 
+### Reports
+
+#### Create Report (authenticated users)
+```
+POST /api/reports
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+Fields:
+  description  string   User description of the issue
+  latitude     number   GPS latitude
+  longitude    number   GPS longitude
+  image        file     Photo (max 10MB, image/* only)
+
+Response:
+{
+  "id": "uuid",
+  "description": "Road crack near park entrance",
+  "latitude": 41.0082,
+  "longitude": 28.9784,
+  "imagePath": "uploads/filename.jpg",
+  "aiCategory": "road_damage",
+  "aiPriority": "high",
+  "aiUnit": "Fen İşleri Müdürlüğü",
+  "aiDescription": "Significant road surface damage...",
+  "aiConfidence": 87,
+  "status": "pending",
+  "reviewFlag": false
+}
+```
+
+Note: `reviewFlag` is automatically set to `true` when AI confidence is below 70%.
+
+#### Get My Reports (authenticated users)
+```
+GET /api/reports/my
+Authorization: Bearer <token>
+```
+
+#### Get All Reports (admin or department)
+```
+GET /api/reports
+Authorization: Bearer <admin-or-dept-token>
+```
+
+#### Get Report by ID (admin or department)
+```
+GET /api/reports/:id
+Authorization: Bearer <admin-or-dept-token>
+```
+
+#### Review Report (admin or department)
+```
+PATCH /api/reports/:id/review
+Authorization: Bearer <admin-or-dept-token>
+Content-Type: application/json
+
+{
+  "status": "approved",    // pending | approved | rejected | redirected
+  "staffNote": "Optional admin note"
+}
+```
+
+#### Get Report Image
+```
+GET /api/reports/images/:filename
+```
+
 ## Database
 
 ### Models
@@ -164,6 +242,28 @@ Response:
   email: string (unique, validated)
   password: string (hashed)
   role: enum('user' | 'admin' | 'department')
+  timestamps: true (createdAt, updatedAt)
+}
+```
+
+#### Report
+```typescript
+{
+  id: UUID (primary key)
+  userId: UUID (foreign key → User)
+  description: string          // User-provided description
+  imagePath: string            // Relative path to uploaded image
+  latitude: number
+  longitude: number
+  aiCategory: string           // AI-detected category (e.g. road_damage, sewage_water)
+  aiPriority: string           // low | medium | high | critical
+  aiUnit: string               // Suggested municipal department (Turkish)
+  aiDescription: string        // AI-generated description
+  aiConfidence: number         // AI confidence score (0-100)
+  aiTop3: JSON                 // Top 3 category predictions
+  status: enum                 // pending | approved | rejected | redirected
+  reviewFlag: boolean          // true when aiConfidence < 70 (needs manual review)
+  staffNote: string            // Admin/department note on review
   timestamps: true (createdAt, updatedAt)
 }
 ```
@@ -393,17 +493,16 @@ docker run -p 3000:3000 \
 
 See root `docker-compose.yml` for full setup.
 
-## Future Enhancements
+## Possible Enhancements
 
-- [ ] Reports CRUD endpoints
 - [ ] Automated tests (Jest)
 - [ ] Request validation (Joi/Zod)
-- [ ] Pagination & filtering
+- [ ] Pagination for report listing
 - [ ] Email verification
 - [ ] Password reset flow
 - [ ] Refresh token rotation
-- [ ] File upload/storage
 - [ ] API documentation (Swagger)
+- [ ] Rate limiting
 - [ ] Performance monitoring
 
 ## Troubleshooting

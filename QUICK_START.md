@@ -1,28 +1,47 @@
 # Quick Start Guide - SRMS Development
 
-## 🚀 Get Running in 5 Minutes
+## Get Running in 5 Minutes
+
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+
+---
 
 ### Option 1: Docker (Recommended)
 
 ```bash
-# Start everything
+# 1. Copy environment template and set your local IP
+cp .env.example .env
+# Edit .env: set HOST_IP to your machine's IP (run: ipconfig getifaddr en0)
+
+# 2. Start everything
 docker-compose up --build
 
-# Wait for output:
-# service-core_1 | service-core running on port 3000
-# client-mobile_1 | Ready on http://localhost:8081
-
-# Open browser: http://localhost:8081
+# Wait for:
+# service-core  | service-core running on port 3000
 ```
 
-**That's it!** Backend, database, and mobile app are running.
+**Access:**
 
-### Option 2: Local Development
+| Service | URL |
+|---------|-----|
+| Admin Panel | http://localhost:3000/admin |
+| Backend API | http://localhost:3000/api |
+| Health Check | http://localhost:3000/health |
+| Database | localhost:5433 |
+
+Admin login: `admin@ankara.bel.tr` / `admin123`
+
+---
+
+### Option 2: Local Development (without Docker)
 
 #### Terminal 1 - Backend
 ```bash
 cd service-core
 npm install
+cp .env.example .env   # fill in your local DB credentials
 npm run dev
 
 # Output: service-core running on port 3000
@@ -30,22 +49,22 @@ npm run dev
 
 #### Terminal 2 - Mobile
 ```bash
+cp client-mobile/.env.development.example client-mobile/.env.development
+# Edit .env.development: set your machine's local IP
+
 cd client-mobile
 npm install
-npm start
+npx expo start
 
-# Scan QR code with Expo app or press 'w' for web
+# Scan QR code with Expo Go on your phone
 ```
 
-#### Terminal 3 - Database (Optional)
-```bash
-# If not using Docker, start PostgreSQL locally
-# Update service-core/.env with your DB details
-```
+#### Database (required if not using Docker)
+Start a local PostgreSQL instance and update `service-core/.env` with your credentials.
 
 ---
 
-## 🧪 Test Authentication
+## Test Authentication
 
 ### 1. Register a User
 ```bash
@@ -90,7 +109,7 @@ curl http://localhost:3000/api/auth/me \
 
 ---
 
-## 📁 Project Layout
+## Project Layout
 
 ```
 SRMS-26/
@@ -99,28 +118,35 @@ SRMS-26/
 │   ├── context/       # State management (AuthContext, ReportContext)
 │   └── app/           # Pages/screens
 │
+├── client-admin/      # Admin panel (plain HTML + Leaflet.js)
+│   └── app/admin/
+│       └── index.html # Served by backend at /admin
+│
 ├── service-core/      # Express.js backend
 │   └── src/
-│       ├── models/    # Database models (User.ts)
+│       ├── models/    # Database models
 │       ├── routes/    # API endpoints
-│       └── services/  # Business logic
+│       ├── services/  # Business logic + AI integration
+│       └── scripts/   # Seed data
 │
-└── docker-compose.yml # Container orchestration
+├── .env.example           # Environment template
+└── docker-compose.yml     # Container orchestration
 ```
 
 ---
 
-## 🔑 Key Services
+## Key Services
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| Mobile App | http://localhost:8081 | React Native frontend |
-| Backend API | http://localhost:3000 | Express.js API |
-| Database | localhost:5432 | PostgreSQL |
+| Admin Panel | http://localhost:3000/admin | Web-based report management |
+| Backend API | http://localhost:3000/api | REST API |
+| Health Check | http://localhost:3000/health | Service status |
+| Database | localhost:5433 | PostgreSQL (port 5433 externally) |
 
 ---
 
-## 💻 Development Commands
+## Development Commands
 
 ### Backend
 ```bash
@@ -131,70 +157,51 @@ npm start         # Run production build
 
 ### Mobile
 ```bash
-npm start         # Start Expo metro
-npm run ios       # iOS preview
-npm run android   # Android preview
-npm run web       # Web preview
+npx expo start    # Start Expo metro bundler
+npm run ios       # iOS simulator
+npm run android   # Android emulator
 ```
 
 ---
 
-## 🛠️ Common Issues
+## Common Issues
 
 ### Port Already in Use
 ```bash
-# Kill process on port
 lsof -i :3000
 kill -9 <PID>
 ```
 
 ### DB Connection Failed
 ```bash
-# Check PostgreSQL is running
-# On Docker: docker ps | grep postgres
-# On local: psql -U postgres
+# Check containers are running
+docker ps
 
-# Update DB credentials in .env
+# View logs
+docker logs srms-26-db-1
 ```
 
 ### Mobile Can't Connect to Backend
 ```bash
-# Check EXPO_PUBLIC_API_BASE_URL in .env.development
-# Should be: http://localhost:3000/api
-# Not: http://192.168.x.x:3000/api
+# Check EXPO_PUBLIC_API_BASE_URL in client-mobile/.env.development
+# Must be your machine's local IP, NOT localhost:
+# Correct:   http://192.168.x.x:3000/api
+# Wrong:     http://localhost:3000/api
+#
+# localhost refers to the phone itself, not your computer.
+# Get your IP: ipconfig getifaddr en0 (Mac) or ipconfig (Windows)
+```
+
+### Admin Panel Not Loading
+```bash
+# Backend must be running first
+curl http://localhost:3000/health
+# Then open: http://localhost:3000/admin
 ```
 
 ---
 
-## 📚 Full Documentation
+## Full Documentation
 
 - [API Testing Guide](API_TESTING_GUIDE.md) - Detailed API reference
 - [Main README](README.md) - Full architecture overview
-- [Backend README](service-core/README.md) - Backend specific docs
-
----
-
-## ✅ Verification Checklist
-
-After starting services:
-
-- [ ] Backend health: `curl http://localhost:3000/health`
-- [ ] Can register user (see above)
-- [ ] Can login with credentials
-- [ ] Can get profile with token
-- [ ] Mobile app loads at http://localhost:8081
-- [ ] Database has users table
-
----
-
-## 🚀 Next Steps
-
-1. **Test the API** using curl commands above
-2. **Read API_TESTING_GUIDE.md** for comprehensive testing
-3. **Integrate UI** with AuthContext and ReportContext
-4. **Build reports** feature on backend
-5. **Add image upload** support
-
----
-
-**Questions?** Check the documentation files or inspect the code.
