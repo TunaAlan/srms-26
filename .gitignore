@@ -26,12 +26,15 @@ yarn-error.*
 
 # macOS
 .DS_Store
+**/.DS_Store
 *.pem
 
 # local env files
 .env*.local
 .env
 client-mobile/.env.development
+service-core/.env.test
+client-mobile/.env.test
 
 # typescript
 *.tsbuildinfo
