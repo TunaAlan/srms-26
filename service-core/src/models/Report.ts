@@ -23,6 +23,7 @@ class Report extends Model<
   // Returned by AI
   declare aiCategory: CreationOptional<string>;
   declare aiPriority: CreationOptional<string>;
+  declare aiPriorityLabel: CreationOptional<string>;
   declare aiUnit: CreationOptional<string>;
   declare aiConfidence: CreationOptional<number>;
   declare aiDescription: CreationOptional<string>;
@@ -68,6 +69,10 @@ Report.init(
       allowNull: true,
     },
     aiPriority: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    aiPriorityLabel: {
       type: DataTypes.STRING,
       allowNull: true,
     },

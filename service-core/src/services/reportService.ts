@@ -40,6 +40,7 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
       return report.update({
         aiCategory: ai.category,
         aiPriority: String(ai.priority),
+        aiPriorityLabel: ai.priorityLabel,
         aiUnit: ai.department,
         aiConfidence: ai.confidence,
         aiDescription: ai.description,
