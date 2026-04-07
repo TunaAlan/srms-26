@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.1.1] - 2026-04-07
+
+### Service Core (Backend)
+
+#### Changed
+- Replaced Gradio-based AI integration with the new FastAPI `ai-service` (`POST /classify`)
+- `aiService.ts` rewritten: sends `image_path` to `http://ai-service:8000/classify`, handles `rejected` responses
+- `reportService.ts` updated: field mapping aligned with new AI response (`department` → `aiUnit`, `needs_review` → `reviewFlag`, integer `priority` → string)
+- `AI_SERVICE_URL` extracted to environment variable (`.env`, `docker-compose.yml`)
+- Removed `aiTop3` field from `Report` model (no longer returned by AI service)
+
+### Infrastructure
+
+#### Changed
+- `docker-compose.yml`: replaced `uploads` volume with `shared-uploads` (external) shared with `ai-service`
+- `docker-compose.yml`: `service-core` connected to external `srms-network` for hostname-based AI service discovery
+- `.env.example` files updated with `AI_SERVICE_URL`
+
+---
+
 ## [0.1.0] - 2026-03-30
 
 ### Overview
