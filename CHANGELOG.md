@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.1.2] - 2026-04-07
+
+### Service Core (Backend)
+
+#### Added
+- `aiPriorityLabel` field added to `Report` model and DB mapping
+
+### Infrastructure
+
+#### Changed
+- `service-core` Docker build context moved to monorepo root
+- `client-admin` static files embedded into `service-core` image (no longer a volume mount)
+- Removed `client-admin` volume mount from `docker-compose.yml`
+
+---
+
 ## [0.1.1] - 2026-04-07
 
 ### Service Core (Backend)

@@ -20,8 +20,8 @@ services:
 
   service-core:
     build:
-      context: ./service-core
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: service-core/Dockerfile
     ports:
       - "3000:3000"
     environment:
@@ -40,7 +40,6 @@ services:
         condition: service_healthy
     volumes:
       - ./service-core/src:/app/src
-      - ./client-admin/app/admin:/app/public/admin
       - shared-uploads:/app/uploads
       - /app/node_modules
     networks:
