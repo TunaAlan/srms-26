@@ -34,14 +34,16 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
   // Run AI analysis in the background — do not block the response
   analyzeImage(input.imagePath)
     .then((ai) => {
-      report.update({
+      if (ai.rejected) {
+        return report.update({ status: 'rejected', staffNote: ai.rejectReason });
+      }
+      return report.update({
         aiCategory: ai.category,
-        aiPriority: ai.priority,
-        aiUnit: ai.unit,
+        aiPriority: String(ai.priority),
+        aiUnit: ai.department,
         aiConfidence: ai.confidence,
         aiDescription: ai.description,
-        aiTop3: ai.top3,
-        reviewFlag: ai.reviewFlag,
+        reviewFlag: ai.needsReview,
       });
     })
     .catch((err) => {

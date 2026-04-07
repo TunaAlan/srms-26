@@ -1,76 +1,79 @@
-import fs from 'fs';
-import path from 'path';
+import { AI_SERVICE_URL } from '../config/env.js';
 
-const GRADIO_BASE = 'http://193.111.77.183:7860';
-const PREDICT_ENDPOINT = `${GRADIO_BASE}/gradio_api/call/predict_image`;
-
-interface AiResult {
+export interface AiResult {
+  rejected: false;
   category: string;
-  priority: string;
-  unit: string;
+  priority: number;
+  priorityLabel: string;
   confidence: number;
+  department: string;
   description: string;
-  top3: string;
-  reviewFlag: boolean;
+  needsReview: boolean;
 }
 
-// Labels are in Turkish because that is what the Gradio API returns
-function parseResult(raw: string): Pick<AiResult, 'category' | 'priority' | 'unit' | 'confidence'> {
-  const get = (label: string) => {
-    const match = raw.match(new RegExp(`${label}\\s*:\\s*(.+)`));
-    return match ? match[1].trim() : '';
-  };
-
-  const confidenceStr = get('Güven').replace('%', '');
-  const confidence = parseFloat(confidenceStr) || 0;
-
-  return {
-    category: get('Kategori'),
-    priority: get('Öncelik'),
-    unit: get('Birim'),
-    confidence,
-  };
+export interface AiRejected {
+  rejected: true;
+  rejectReason: string;
 }
 
-export async function analyzeImage(imagePath: string): Promise<AiResult> {
-  const imageBuffer = fs.readFileSync(imagePath);
-  const ext = path.extname(imagePath).slice(1) || 'jpeg';
-  const base64 = imageBuffer.toString('base64');
-  const dataUrl = `data:image/${ext};base64,${base64}`;
+export async function analyzeImage(imagePath: string): Promise<AiResult | AiRejected> {
+  // imagePath from multer: "uploads/abc.jpg"
+  // AI service expects: "/uploads/abc.jpg"
+  const filename = imagePath.replace(/^uploads\//, '');
+  const aiImagePath = `/uploads/${filename}`;
 
-  // Step 1: enqueue request, get event_id
-  const initRes = await fetch(PREDICT_ENDPOINT, {
+  const res = await fetch(`${AI_SERVICE_URL}/classify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      data: [{ url: dataUrl, meta: { _type: 'gradio.FileData' } }],
-    }),
+    body: JSON.stringify({ image_path: aiImagePath }),
   });
 
-  if (!initRes.ok) {
-    throw new Error(`Gradio init failed: ${initRes.status}`);
+  if (!res.ok) {
+    throw new Error(`AI service error: ${res.status}`);
   }
 
-  const { event_id } = await initRes.json() as { event_id: string };
+  const data = await res.json() as {
+    success: boolean;
+    rejected: boolean;
+    reject_reason?: string;
+    category?: string;
+    priority?: number;
+    priority_label?: string;
+    confidence?: number;
+    department?: string;
+    description?: string;
+    needs_review?: boolean;
+  };
 
-  // Step 2: read result from SSE stream
-  const resultRes = await fetch(`${PREDICT_ENDPOINT}/${event_id}`);
-  const text = await resultRes.text();
-
-  // Find the "data: [...]" line in the SSE response
-  const dataLine = text.split('\n').find(l => l.startsWith('data:') && l.includes('['));
-  if (!dataLine) {
-    throw new Error('Could not read Gradio result');
+  if (!data.success) {
+    throw new Error('AI service returned success: false');
   }
 
-  const [rawResult, geminiDescription, top3] = JSON.parse(dataLine.replace('data: ', '')) as string[];
-
-  const parsed = parseResult(rawResult);
+  if (data.rejected) {
+    return {
+      rejected: true,
+      rejectReason: data.reject_reason ?? 'Rejected by AI',
+    };
+  }
 
   return {
-    ...parsed,
-    description: geminiDescription.replace(/^Açıklama:\s*/i, '').trim(),
-    top3,
-    reviewFlag: parsed.confidence < 70,
+    rejected: false,
+    category: data.category!,
+    priority: data.priority!,
+    priorityLabel: data.priority_label!,
+    confidence: data.confidence!,
+    department: data.department!,
+    description: data.description!,
+    needsReview: data.needs_review!,
   };
+}
+
+export async function healthCheck(): Promise<boolean> {
+  try {
+    const res = await fetch(`${AI_SERVICE_URL}/health`);
+    const data = await res.json() as { status: string };
+    return data.status === 'ok';
+  } catch {
+    return false;
+  }
 }

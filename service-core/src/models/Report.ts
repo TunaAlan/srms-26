@@ -26,7 +26,6 @@ class Report extends Model<
   declare aiUnit: CreationOptional<string>;
   declare aiConfidence: CreationOptional<number>;
   declare aiDescription: CreationOptional<string>;
-  declare aiTop3: CreationOptional<string>;
 
   // Workflow
   declare status: CreationOptional<'pending' | 'approved' | 'rejected' | 'redirected'>;
@@ -81,10 +80,6 @@ Report.init(
       allowNull: true,
     },
     aiDescription: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    aiTop3: {
       type: DataTypes.TEXT,
       allowNull: true,
     },

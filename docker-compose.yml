@@ -34,14 +34,18 @@ services:
       DB_PASSWORD: postgres
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: 7d
+      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-service:8000}
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ./service-core/src:/app/src
       - ./client-admin/app/admin:/app/public/admin
-      - uploads:/app/uploads
+      - shared-uploads:/app/uploads
       - /app/node_modules
+    networks:
+      - srms-network
+      - default
 
   client-mobile:
     build:
@@ -63,4 +67,9 @@ services:
 
 volumes:
   pgdata:
-  uploads:
+  shared-uploads:
+    external: true
+
+networks:
+  srms-network:
+    external: true
