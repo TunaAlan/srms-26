@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Report } from '../types';
-import { getCriticalityLabel, getTimeAgo } from '../utils';
+import { getCriticalityLabel, getTimeAgo, getCategoryLabel } from '../utils';
 
 interface DetailModalProps {
   report: Report;
@@ -53,7 +53,9 @@ export const DetailModal: React.FC<DetailModalProps> = ({ report, onClose, onSav
             <div>
               <div className="modal-section-title">Kullanıcı Kategorisi</div>
               <div className="modal-desc">
-                {report.userCategory || <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Seçilmedi</span>}
+                {report.userCategory
+                  ? getCategoryLabel(report.userCategory)
+                  : <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Seçilmedi</span>}
               </div>
             </div>
             <div>

@@ -29,7 +29,7 @@ export function getCriticalityLabel(c: string): string {
   );
 }
 
-const CATEGORY_LABEL_MAP: Record<string, string> = {
+export const CATEGORY_LABEL_MAP: Record<string, string> = {
   road_damage:      'Yol Hasarı',
   sidewalk_damage:  'Kaldırım Hasarı',
   waste:            'Çöp / Atık',
@@ -45,6 +45,10 @@ const CATEGORY_LABEL_MAP: Record<string, string> = {
   normal:           'Normal',
   irrelevant:       'İlgisiz',
 };
+
+export function getCategoryLabel(id: string): string {
+  return CATEGORY_LABEL_MAP[id] || id;
+}
 
 const _STATUS_TO_UI: Record<string, string> = {
   pending: 'beklemede',

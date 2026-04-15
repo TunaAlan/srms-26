@@ -70,18 +70,29 @@ function App() {
     setIsAuthenticated(false);
   };
 
-  // Mock handlers for Save and Delete, as the original script had UI logic mapped, but actual API calls weren't explicitly shown saving/deleting. We assume we should call API or update state.
   const handleSaveReport = async (id: string, newStatus: string, newRes: string) => {
-    // In actual implementation, we might call a server endpoint here.
-    // Optimistic update for now.
-    setReports(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as any, resolution: newRes } : r));
-    setShowDetailModal(false);
+    try {
+      await apiFetch(`/reports/${id}/review`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus, staffNote: newRes }),
+      });
+      setReports(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as any, resolution: newRes } : r));
+    } catch (err) {
+      console.error('Rapor güncellenemedi:', err);
+    } finally {
+      setShowDetailModal(false);
+    }
   };
 
   const handleDeleteConfirm = async (id: string) => {
-    // Optimistic update
-    setReports(prev => prev.filter(r => r.id !== id));
-    setShowDeleteModal(false);
+    try {
+      await apiFetch(`/reports/${id}`, { method: 'DELETE' });
+      setReports(prev => prev.filter(r => r.id !== id));
+    } catch (err) {
+      console.error('Rapor silinemedi:', err);
+    } finally {
+      setShowDeleteModal(false);
+    }
   };
 
   if (!isAuthenticated) {
