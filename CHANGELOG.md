@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.2.3] - 2026-04-15
+
+### Client Admin
+
+#### Changed
+- Refactored `client-admin` from vanilla HTML/JS to a modular Vite-based React application.
+- Resolved 405 API routing errors by implementing a Vite dev server proxy setup pointing to the backend.
+
+### AI Service
+
+#### Changed
+- Updated the AI model path resolution to use dynamic relative paths instead of an absolute `/models` path, effectively rectifying startup failures.
+- Added missing `python-dotenv` dependency to `requirements.txt`.
+
+### Infrastructure
+
+#### Changed
+- Standardized `docker-compose.yml` by removing `external: true` from networks and volumes for automatic creation.
+- Added the missing `ai-service` Docker startup config.
+- Removed obsolete `client-admin` static file copy directives from `service-core/Dockerfile` since the React app now builds its own Nginx container.
+
+---
+
 ## [0.1.2] - 2026-04-07
 
 ### Service Core (Backend)
