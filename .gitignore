@@ -49,3 +49,7 @@ android/
 
 # OS files
 Thumbs.db
+
+# Python / AI Model
+*.pth
+__pycache__/

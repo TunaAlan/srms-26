@@ -46,6 +46,21 @@ services:
       - srms-network
       - default
 
+  ai-service:
+    build:
+      context: ./ai_service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./ai_service/.env
+    volumes:
+      - ./ai_service:/app
+      - shared-uploads:/app/uploads
+    networks:
+      - srms-network
+      - default
+
   client-mobile:
     build:
       context: ./client-mobile
@@ -64,11 +79,27 @@ services:
       - ./client-mobile:/app
       - /app/node_modules
 
+  client-admin:
+    build:
+      context: ./client-admin
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - service-core
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
 volumes:
   pgdata:
   shared-uploads:
-    external: true
 
 networks:
   srms-network:
-    external: true

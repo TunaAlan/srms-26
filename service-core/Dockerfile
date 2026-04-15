@@ -18,8 +18,6 @@ RUN npm run build
 # Reinstall only production dependencies
 RUN npm ci --omit=dev
 
-# Copy admin panel static files
-COPY client-admin/app/admin ./public/admin
 
 # Expose port
 EXPOSE 3000
