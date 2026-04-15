@@ -56,14 +56,20 @@ export const ReportsList: React.FC<ReportsListProps> = ({
         </select>
         <select className="filter-select" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
           <option value="all">Tüm Kategoriler</option>
-          <option value="yol">Yol / Kaldırım</option>
-          <option value="su">Su / Kanalizasyon</option>
-          <option value="elektrik">Elektrik</option>
-          <option value="bina">Bina / Yapı</option>
-          <option value="park">Park / Yeşil Alan</option>
-          <option value="cop">Çöp / Temizlik</option>
-          <option value="gaz">Doğalgaz</option>
-          <option value="diger">Diğer</option>
+          <option value="road_damage">Yol Hasarı</option>
+          <option value="sidewalk_damage">Kaldırım Hasarı</option>
+          <option value="waste">Çöp / Atık</option>
+          <option value="pollution">Çevre Kirliliği</option>
+          <option value="green_space">Yeşil Alan</option>
+          <option value="lighting">Aydınlatma</option>
+          <option value="traffic_sign">Trafik İşareti</option>
+          <option value="sewage_water">Kanalizasyon / Su</option>
+          <option value="infrastructure">Altyapı</option>
+          <option value="vandalism">Vandalizm</option>
+          <option value="stray_animal">Başıboş Hayvan</option>
+          <option value="natural_disaster">Doğal Afet</option>
+          <option value="normal">Normal</option>
+          <option value="irrelevant">İlgisiz</option>
         </select>
         <select className="filter-select" value={filterCriticality} onChange={(e) => setFilterCriticality(e.target.value)}>
           <option value="all">Tüm Aciliyetler</option>

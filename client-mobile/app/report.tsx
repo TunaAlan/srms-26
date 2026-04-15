@@ -18,14 +18,18 @@ import { theme } from "../constants/theme";
 import { useReports } from "../context/ReportContext";
 
 const CATEGORIES = [
-  { id: "yol", label: "Yol / Kaldırım", icon: "car" as const },
-  { id: "su", label: "Su / Kanalizasyon", icon: "water" as const },
-  { id: "elektrik", label: "Elektrik", icon: "flash" as const },
-  { id: "bina", label: "Bina / Yapı", icon: "business" as const },
-  { id: "park", label: "Park / Yeşil Alan", icon: "leaf" as const },
-  { id: "cop", label: "Çöp / Temizlik", icon: "trash" as const },
-  { id: "gaz", label: "Doğalgaz", icon: "flame" as const },
-  { id: "diger", label: "Diğer", icon: "ellipsis-horizontal" as const },
+  { id: "road_damage",      label: "Yol Hasarı",        icon: "car" as const },
+  { id: "sidewalk_damage",  label: "Kaldırım Hasarı",   icon: "footsteps" as const },
+  { id: "waste",            label: "Çöp / Atık",        icon: "trash" as const },
+  { id: "pollution",        label: "Çevre Kirliliği",   icon: "cloud" as const },
+  { id: "green_space",      label: "Yeşil Alan",        icon: "leaf" as const },
+  { id: "lighting",         label: "Aydınlatma",        icon: "flashlight" as const },
+  { id: "traffic_sign",     label: "Trafik İşareti",    icon: "warning" as const },
+  { id: "sewage_water",     label: "Kanalizasyon / Su", icon: "water" as const },
+  { id: "infrastructure",   label: "Altyapı",           icon: "construct" as const },
+  { id: "vandalism",        label: "Vandalizm",         icon: "hammer" as const },
+  { id: "stray_animal",     label: "Başıboş Hayvan",    icon: "paw" as const },
+  { id: "natural_disaster", label: "Doğal Afet",        icon: "thunderstorm" as const },
 ];
 
 export default function ReportScreen() {
@@ -116,21 +120,12 @@ export default function ReportScreen() {
       Alert.alert("Fotoğraf Gerekli", "Lütfen soruna ait bir fotoğraf ekleyin.");
       return;
     }
-    if (!category) {
-      Alert.alert("Kategori Gerekli", "Lütfen bir kategori seçin.");
-      return;
-    }
-    if (!description.trim()) {
-      Alert.alert("Açıklama Gerekli", "Lütfen sorunu açıklayın.");
-      return;
-    }
-
     setSubmitting(true);
     const success = await addReport({
       image,
-      description,
-      category,
-      categoryLabel: selectedCat?.label || "Diğer",
+      description: description.trim() || undefined,
+      userCategory: category || undefined,
+      userCategoryLabel: selectedCat?.label,
       latitude: location?.latitude || 0,
       longitude: location?.longitude || 0,
       address: location?.address || "Bilinmeyen",
@@ -238,7 +233,7 @@ export default function ReportScreen() {
 
       {/* Category */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Kategori</Text>
+        <Text style={styles.sectionTitle}>Kategori <Text style={{ fontWeight: '400', textTransform: 'none' }}>(opsiyonel)</Text></Text>
         <View style={styles.categoryGrid}>
           {CATEGORIES.map((cat) => {
             const isActive = category === cat.id;
@@ -273,7 +268,7 @@ export default function ReportScreen() {
 
       {/* Description */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Açıklama</Text>
+        <Text style={styles.sectionTitle}>Açıklama <Text style={{ fontWeight: '400', textTransform: 'none' }}>(opsiyonel)</Text></Text>
         <TextInput
           style={styles.input}
           placeholder="Sorunu detaylı bir şekilde açıklayın..."
@@ -293,7 +288,7 @@ export default function ReportScreen() {
       <TouchableOpacity
         style={[
           styles.submitBtn,
-          (!image || !description.trim() || !category || submitting) && styles.submitDisabled,
+          (!image || submitting) && styles.submitDisabled,
         ]}
         onPress={handleSubmit}
         disabled={submitting}

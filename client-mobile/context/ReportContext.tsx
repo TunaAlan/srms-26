@@ -23,9 +23,15 @@ interface ReportContextType {
   reports: Report[];
   isLoading: boolean;
   error: string | null;
-  addReport: (
-    report: Omit<Report, "id" | "timestamp" | "status" | "criticality">,
-  ) => Promise<boolean>;
+  addReport: (report: {
+    image: string;
+    description?: string;
+    userCategory?: string;
+    userCategoryLabel?: string;
+    latitude: number;
+    longitude: number;
+    address: string;
+  }) => Promise<boolean>;
   fetchReports: () => Promise<void>;
   clearError: () => void;
 }
@@ -62,9 +68,15 @@ export function ReportProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addReport = async (
-    report: Omit<Report, "id" | "timestamp" | "status" | "criticality">,
-  ): Promise<boolean> => {
+  const addReport = async (report: {
+    image: string;
+    description?: string;
+    userCategory?: string;
+    userCategoryLabel?: string;
+    latitude: number;
+    longitude: number;
+    address: string;
+  }): Promise<boolean> => {
     try {
       setIsLoading(true);
       setError(null);
@@ -72,6 +84,7 @@ export function ReportProvider({ children }: { children: ReactNode }) {
       await reportsApi.createReport({
         image: report.image,
         description: report.description,
+        userCategory: report.userCategory,
         latitude: report.latitude,
         longitude: report.longitude,
       });

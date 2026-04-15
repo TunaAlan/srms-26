@@ -5,6 +5,7 @@ interface CreateReportInput {
   userId: string;
   imagePath: string;
   description?: string;
+  userCategory?: string;
   latitude?: number;
   longitude?: number;
 }
@@ -27,6 +28,7 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
     userId: input.userId,
     imagePath: input.imagePath,
     description: input.description,
+    userCategory: input.userCategory,
     latitude: input.latitude,
     longitude: input.longitude,
   });

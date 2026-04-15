@@ -56,7 +56,7 @@ services:
       - ./ai_service/.env
     volumes:
       - ./ai_service:/app
-      - shared-uploads:/app/uploads
+      - shared-uploads:/uploads
     networks:
       - srms-network
       - default

@@ -20,7 +20,8 @@ export interface Report {
 
 export interface CreateReportRequest {
   image: string; // local URI
-  description: string;
+  description?: string;
+  userCategory?: string;
   latitude: number;
   longitude: number;
 }
@@ -36,21 +37,21 @@ export interface ReportsApiClient {
 }
 
 
-const CATEGORY_MAP: Record<string, string> = {
-  road_damage: 'yol',
-  sidewalk_damage: 'yol',
-  infrastructure: 'yol',
-  traffic_sign: 'yol',
-  sewage_water: 'su',
-  waste: 'cop',
-  pollution: 'cop',
-  green_space: 'park',
-  lighting: 'elektrik',
-  vandalism: 'diger',
-  stray_animal: 'diger',
-  natural_disaster: 'diger',
-  normal: 'diger',
-  irrelevant: 'diger',
+const CATEGORY_LABEL_MAP: Record<string, string> = {
+  road_damage:      'Yol Hasarı',
+  sidewalk_damage:  'Kaldırım Hasarı',
+  waste:            'Çöp / Atık',
+  pollution:        'Çevre Kirliliği',
+  green_space:      'Yeşil Alan',
+  lighting:         'Aydınlatma',
+  traffic_sign:     'Trafik İşareti',
+  sewage_water:     'Kanalizasyon / Su',
+  infrastructure:   'Altyapı',
+  vandalism:        'Vandalizm',
+  stray_animal:     'Başıboş Hayvan',
+  natural_disaster: 'Doğal Afet',
+  normal:           'Normal',
+  irrelevant:       'İlgisiz',
 };
 
 function mapPriority(priority: string | null): Report['criticality'] {
@@ -78,8 +79,8 @@ function mapReportFromApi(r: Record<string, any>): Report {
     description: r.aiDescription || r.description || '',
     userDescription: r.description || '',
     aiDescription: r.aiDescription || '',
-    category: CATEGORY_MAP[r.aiCategory] || 'diger',
-    categoryLabel: r.aiUnit || r.aiCategory || 'Diğer',
+    category: r.aiCategory || '',
+    categoryLabel: CATEGORY_LABEL_MAP[r.aiCategory] || r.aiCategory || 'Diğer',
     latitude: r.latitude || 0,
     longitude: r.longitude || 0,
     address: r.aiUnit || '',
@@ -125,7 +126,8 @@ class ReportsApiClientImpl implements ReportsApiClient {
       type: 'image/jpeg',
       name: 'photo.jpg',
     } as any);
-    formData.append('description', data.description);
+    if (data.description) formData.append('description', data.description);
+    if (data.userCategory) formData.append('userCategory', data.userCategory);
     formData.append('latitude', String(data.latitude));
     formData.append('longitude', String(data.longitude));
 

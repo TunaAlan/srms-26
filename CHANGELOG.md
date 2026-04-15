@@ -9,6 +9,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.3.0] - 2026-04-15
+
+### Client Mobile
+
+#### Changed
+- `CATEGORIES` list replaced from 8 generic categories (`yol`, `su`, `elektrik`...) to 12 AI-aligned categories (`road_damage`, `sidewalk_damage`, `waste`...) to enable meaningful comparison with AI classification output.
+- Category selection and text description are now **optional** — only a photo is required to submit a report. This reflects the design intent: user input serves as a hint for the review team, not a mandatory field.
+- Submit button disabled state updated to require only image.
+- `CATEGORY_MAP` replaced with `CATEGORY_LABEL_MAP` providing proper Turkish labels for AI category IDs (e.g. `road_damage` → `Yol Hasarı`). Previously `categoryLabel` was incorrectly populated from `aiUnit` (department name) or raw English ID.
+
+#### Added
+- `userCategory` field propagated through the full mobile stack: `report.tsx` → `ReportContext` → `reportsApi` → sent as `FormData` field when selected.
+
+#### Fixed
+- `description` field in `createReport` FormData now only appended when non-empty (was always sent as empty string).
+
+---
+
+### Service Core (Backend)
+
+#### Added
+- `userCategory` column added to `Report` model (`STRING`, `allowNull: true`) to store the citizen's self-selected category for review comparison.
+- `userCategory` extracted from `req.body` in `reportController` and passed through `reportService` to `Report.create`.
+
+---
+
+### Client Admin
+
+#### Fixed
+- Category filter dropdown in `Reports.tsx` was using old 8-category values (`yol`, `su`...) while `r.category` held AI values (`road_damage`, `sewage_water`...) — filter was never matching. Updated to use 14 AI category IDs.
+- `categoryLabel` in `utils.ts` was populated from `r.aiUnit` (e.g. `Fen İşleri`) instead of a proper category label. Replaced `CATEGORY_MAP` with `CATEGORY_LABEL_MAP` for correct Turkish display.
+
+#### Added
+- `userCategory` field added to `Report` type and mapped in `mapReport` utility.
+- `DetailModal` now shows **Kullanıcı Kategorisi** vs **AI Kategorisi** side by side, enabling review team to compare citizen input against AI classification. Displays "Seçilmedi" when user skipped category selection.
+
+---
+
+### Infrastructure
+
+#### Fixed
+- `ai-service` volume mount corrected from `shared-uploads:/app/uploads` to `shared-uploads:/uploads`. The AI service (`main.py`) checks `Path("/uploads/foto.jpg").exists()` but the previous mount placed files at `/app/uploads` — causing all `/classify` requests to return HTTP 400.
+- `API_KEY` added to `.env.example` (was missing; `gemini.py` reads `os.getenv("API_KEY")` but the example file only documented `GEMINI_API_KEY`).
+- `.venv/` and `*.pyc` added to root `.gitignore` to prevent Python virtual environment from being tracked.
+
+---
+
 ## [0.2.3] - 2026-04-15
 
 ### Client Admin

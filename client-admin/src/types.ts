@@ -3,6 +3,7 @@ export interface Report {
   image: string | null;
   description: string;
   userDescription: string;
+  userCategory: string;
   category: string;
   categoryLabel: string;
   latitude: number;

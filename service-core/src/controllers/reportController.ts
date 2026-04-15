@@ -10,12 +10,13 @@ export const createReport = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    const { description, latitude, longitude } = req.body;
+    const { description, userCategory, latitude, longitude } = req.body;
 
     const report = await reportService.createReport({
       userId: req.user!.id,
       imagePath: req.file.path,
       description,
+      userCategory,
       latitude: latitude ? parseFloat(latitude) : undefined,
       longitude: longitude ? parseFloat(longitude) : undefined,
     });

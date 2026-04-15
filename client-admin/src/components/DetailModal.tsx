@@ -49,6 +49,21 @@ export const DetailModal: React.FC<DetailModalProps> = ({ report, onClose, onSav
             </div>
           </div>
 
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', margin: '12px 0' }}>
+            <div>
+              <div className="modal-section-title">Kullanıcı Kategorisi</div>
+              <div className="modal-desc">
+                {report.userCategory || <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Seçilmedi</span>}
+              </div>
+            </div>
+            <div>
+              <div className="modal-section-title">AI Kategorisi</div>
+              <div className="modal-desc">
+                {report.categoryLabel || report.category || <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Henüz analiz edilmedi</span>}
+              </div>
+            </div>
+          </div>
+
           {report.userDescription && (
             <>
               <div className="modal-section-title">Kullanıcı Açıklaması</div>

@@ -17,6 +17,7 @@ class Report extends Model<
   // Submitted by user
   declare imagePath: string;
   declare description: CreationOptional<string>;
+  declare userCategory: CreationOptional<string>;
   declare latitude: CreationOptional<number>;
   declare longitude: CreationOptional<number>;
 
@@ -54,6 +55,10 @@ Report.init(
     },
     description: {
       type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    userCategory: {
+      type: DataTypes.STRING,
       allowNull: true,
     },
     latitude: {

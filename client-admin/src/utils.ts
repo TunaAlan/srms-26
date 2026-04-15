@@ -29,21 +29,21 @@ export function getCriticalityLabel(c: string): string {
   );
 }
 
-const CATEGORY_MAP: Record<string, string> = {
-  road_damage: 'yol',
-  sidewalk_damage: 'yol',
-  infrastructure: 'yol',
-  traffic_sign: 'yol',
-  sewage_water: 'su',
-  waste: 'cop',
-  pollution: 'cop',
-  green_space: 'park',
-  lighting: 'elektrik',
-  vandalism: 'diger',
-  stray_animal: 'diger',
-  natural_disaster: 'diger',
-  normal: 'diger',
-  irrelevant: 'diger',
+const CATEGORY_LABEL_MAP: Record<string, string> = {
+  road_damage:      'Yol Hasarı',
+  sidewalk_damage:  'Kaldırım Hasarı',
+  waste:            'Çöp / Atık',
+  pollution:        'Çevre Kirliliği',
+  green_space:      'Yeşil Alan',
+  lighting:         'Aydınlatma',
+  traffic_sign:     'Trafik İşareti',
+  sewage_water:     'Kanalizasyon / Su',
+  infrastructure:   'Altyapı',
+  vandalism:        'Vandalizm',
+  stray_animal:     'Başıboş Hayvan',
+  natural_disaster: 'Doğal Afet',
+  normal:           'Normal',
+  irrelevant:       'İlgisiz',
 };
 
 const _STATUS_TO_UI: Record<string, string> = {
@@ -69,8 +69,9 @@ export function mapReport(r: any): any {
     image: filename ? `/api/reports/images/${filename}` : null,
     description: r.aiDescription || '',
     userDescription: r.description || '',
-    category: CATEGORY_MAP[r.aiCategory] || 'diger',
-    categoryLabel: r.aiUnit || r.aiCategory || 'Diğer',
+    category: r.aiCategory || '',
+    categoryLabel: CATEGORY_LABEL_MAP[r.aiCategory] || r.aiCategory || 'Diğer',
+    userCategory: r.userCategory || '',
     latitude: r.latitude || 0,
     longitude: r.longitude || 0,
     address: r.aiUnit || '',
