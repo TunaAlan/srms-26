@@ -1,4 +1,5 @@
 import db from '../models/index.js';
+import bcrypt from 'bcryptjs';
 
 export const seedDatabase = async () => {
   try {
@@ -18,7 +19,8 @@ export const seedDatabase = async () => {
     for (const u of testUsers) {
       const exists = await db.User.findOne({ where: { email: u.email } });
       if (!exists) {
-        await db.User.create(u as any, { hooks: true } as any);
+        const hashedPassword = await bcrypt.hash(u.password, 12);
+        await db.User.create({ ...u, password: hashedPassword } as any, { hooks: false } as any);
         created++;
       }
     }
