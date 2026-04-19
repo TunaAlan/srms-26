@@ -1,89 +1,108 @@
 """
-SRMS-26 AI Servisi
-POST /classify -> Gemini (aciklama) -> DeBERTa (siniflandir) -> JSON
+Environmental Issue Classifier v8 -- HTTP API
+POST /analyze  -> fotograf yukle, JSON sonuc al
+GET  /health   -> servis durumu
 """
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from contextlib import asynccontextmanager
+import io
+import tempfile
 from pathlib import Path
-import logging
+from contextlib import asynccontextmanager
 
-from model import load_model, classify
-from gemini import analyze_image, check_troll
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+import app as classifier
 
-ml = {}  # model burda yasar, her istekte tekrar yuklenmez
+
+_model = None
+_tokenizer = None
+_device = None
+
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    logger.info("DeBERTa yukleniyor...")
-    ml["model"], ml["tokenizer"], ml["device"] = load_model()
-    logger.info(f"Model hazir ({ml['device']})")
+async def lifespan(application: FastAPI):
+    global _model, _tokenizer, _device
+    print("Model yukleniyor...")
+    _model, _tokenizer, _device = classifier.load_model()
+    print(f"Model hazir ({_device})")
     yield
-    ml.clear()
+    print("Servis kapaniyor.")
 
-app = FastAPI(title="SRMS-26 AI Servisi", lifespan=lifespan)
+
+api = FastAPI(
+    title="Environmental Issue Classifier",
+    version="8.0",
+    lifespan=lifespan,
+)
+
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+@api.get("/health")
+def health():
+    return {"status": "ok", "model_loaded": _model is not None}
 
 
 class ClassifyRequest(BaseModel):
-    image_path: str  # /uploads/foto.jpg
+    image_path: str
 
 
-class ClassifyResponse(BaseModel):
-    success:      bool
-    rejected:     bool  = False
-    reject_reason: str  = ""
-    category:     str   = ""
-    priority:     int   = 0
-    priority_label: str = ""
-    confidence:   float = 0.0
-    department:   str   = ""
-    description:  str   = ""
-    needs_review: bool  = False
-
-
-@app.post("/classify", response_model=ClassifyResponse)
+@api.post("/classify")
 def classify_report(req: ClassifyRequest):
     path = Path(req.image_path)
     if not path.exists():
         raise HTTPException(status_code=400, detail=f"Dosya bulunamadi: {req.image_path}")
 
-    # 1. Gemini → metin açıklama
-    gemini_result = analyze_image(str(path))
-    if "error" in gemini_result:
-        raise HTTPException(status_code=502, detail=gemini_result["error"])
+    result = classifier.analyze(str(path), _model, _tokenizer, _device)
 
-    # 2. Troll filtresi
-    troll = check_troll(gemini_result)
-    if not troll["passed"]:
-        return ClassifyResponse(
-            success=True,
-            rejected=True,
-            reject_reason=troll["reason"],
-        )
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
 
-    description = gemini_result.get("description", "")
-    if not description:
-        raise HTTPException(status_code=502, detail="Gemini aciklama dondürmedi")
+    if result.get("rejected"):
+        return {
+            "success": True,
+            "rejected": True,
+            "reject_reason": result.get("reject_reason", ""),
+            "category": "", "priority": 0, "priority_label": "",
+            "confidence": 0.0, "department": "", "description": "", "needs_review": False,
+        }
 
-    # 3. DeBERTa → kategori + priority
-    result = classify(description, ml["model"], ml["tokenizer"], ml["device"])
-
-    return ClassifyResponse(
-        success=True,
-        category=result["category"],
-        priority=result["priority"],
-        priority_label=result["priority_label"],
-        confidence=round(result["confidence"], 4),
-        department=result["department"],
-        description=description,
-        needs_review=result["needs_review"],
-    )
+    return {
+        "success":       True,
+        "rejected":      False,
+        "reject_reason": "",
+        "category":      result.get("category", ""),
+        "priority":      result.get("priority", 0),
+        "priority_label": result.get("priority_label", ""),
+        "confidence":    result.get("confidence", 0.0),
+        "department":    result.get("department", ""),
+        "description":   result.get("description", ""),
+        "needs_review":  result.get("needs_review", False),
+    }
 
 
-@app.get("/health")
-def health():
-    return {"status": "ok", "model_loaded": "model" in ml}
+@api.post("/analyze")
+async def analyze(image: UploadFile = File(...)):
+    suffix = Path(image.filename or "upload.jpg").suffix.lower()
+    if suffix not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Desteklenmeyen dosya turu: {suffix}")
+
+    data = await image.read()
+    if len(data) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Dosya 20 MB sinirini asti")
+
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(data)
+        tmp_path = tmp.name
+
+    try:
+        result = classifier.analyze(tmp_path, _model, _tokenizer, _device)
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    return JSONResponse(content=result)
