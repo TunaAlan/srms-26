@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  ai_service:
+    build: .
+    image: srms-ai-service:v9
+    container_name: srms_ai
+    restart: unless-stopped
+
+    ports:
+      - "8000:8000"
+
+    env_file:
+      - .env
+
+    volumes:
+      # BURAYA SUNUCUDAKI UPLOADS KLASOR YOLUNU YAZ
+      # Ornek: /home/mjin/srms/uploads:/uploads
+      - ${UPLOADS_PATH}:/uploads
+
+    # Sunucu kaynak limitleri (5.8GB RAM, 4 core)
+    # ONNX ~1.5GB + uygulama ~0.3GB = ~1.8GB, 2.5GB limit guvenli
+    deploy:
+      resources:
+        limits:
+          memory: 2500M
+          cpus: "3.0"
+        reservations:
+          memory: 1800M
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
