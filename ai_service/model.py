@@ -1,11 +1,10 @@
 import sys
-import torch
-import torch.nn as nn
-from transformers import AutoModel, AutoTokenizer
 import os
+import numpy as np
+from transformers import AutoTokenizer
 from pathlib import Path
 
-MODEL_PATH = os.getenv("MODEL_PATH", str(Path(__file__).parent.resolve() / "text_classifier_v8.pth"))
+ONNX_PATH = os.getenv("ONNX_PATH", str(Path(__file__).parent.resolve() / "text_classifier_v9.onnx"))
 
 CLASSES = [
     "road_damage", "sidewalk_damage", "waste", "pollution",
@@ -41,63 +40,50 @@ NUM_CLASSES    = len(CLASSES)
 NUM_PRIORITIES = 6
 
 
-class EnvClassifier(nn.Module):
-    def __init__(self, model_name="microsoft/deberta-v3-small", num_classes=NUM_CLASSES, num_priorities=NUM_PRIORITIES):
-        super().__init__()
-        self.backbone = AutoModel.from_pretrained(model_name)
-        hidden = self.backbone.config.hidden_size  # 768
-
-        self.class_head = nn.Sequential(
-            nn.Dropout(0.3),  nn.Linear(hidden, 384), nn.GELU(),
-            nn.Dropout(0.15), nn.Linear(384, num_classes),
-        )
-        self.priority_head = nn.Sequential(
-            nn.Dropout(0.3), nn.Linear(hidden, 192), nn.GELU(),
-            nn.Dropout(0.1), nn.Linear(192, num_priorities),
-        )
-
-    def forward(self, input_ids, attention_mask):
-        out = self.backbone(input_ids=input_ids, attention_mask=attention_mask)
-        cls = out.last_hidden_state[:, 0]
-        return self.class_head(cls), self.priority_head(cls)
+def _softmax(x):
+    e = np.exp(x - x.max())
+    return e / e.sum()
 
 
 def load_model():
-    if not Path(MODEL_PATH).exists():
-        print(f"HATA: Model bulunamadi: {MODEL_PATH}")
+    import onnxruntime as ort
+
+    print(f"[model] ONNX_PATH = {ONNX_PATH}")
+    if not Path(ONNX_PATH).exists():
+        print(f"HATA: ONNX model bulunamadi: {ONNX_PATH}")
         sys.exit(1)
 
-    device    = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model     = EnvClassifier("microsoft/deberta-v3-small", num_classes=NUM_CLASSES, num_priorities=NUM_PRIORITIES).to(device)
+    sess = ort.InferenceSession(ONNX_PATH, providers=["CPUExecutionProvider"])
     tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-v3-small")
 
-    checkpoint = torch.load(MODEL_PATH, map_location=device, weights_only=False)
-    model.load_state_dict(checkpoint["model_state"])
-    model = model.float()
-    model.eval()
-
-    return model, tokenizer, device
+    print(f"[model] ONNX model yuklendi (CPU)")
+    return sess, tokenizer, "cpu"
 
 
 def classify(text: str, model, tokenizer, device) -> dict:
+    sess = model  # model aslında ort.InferenceSession
+
     enc = tokenizer(
         text, truncation=True, padding="max_length",
-        max_length=64, return_tensors="pt"
+        max_length=64, return_tensors="np"
     )
-    ids  = enc["input_ids"].to(device)
-    mask = enc["attention_mask"].to(device)
 
-    with torch.no_grad():
-        cls_out, pri_out = model(ids, mask)
+    cls_out, pri_out = sess.run(
+        ["class_logits", "priority_logits"],
+        {
+            "input_ids":      enc["input_ids"].astype(np.int64),
+            "attention_mask": enc["attention_mask"].astype(np.int64),
+        }
+    )
 
-    cls_probs  = torch.softmax(cls_out, dim=1)[0]
-    pri_probs  = torch.softmax(pri_out, dim=1)[0]
-    cls_idx    = cls_probs.argmax().item()
-    pri_idx    = pri_probs.argmax().item()
-    confidence = cls_probs[cls_idx].item()
+    cls_probs = _softmax(cls_out[0])
+    pri_probs = _softmax(pri_out[0])
+    cls_idx   = int(cls_probs.argmax())
+    pri_idx   = int(pri_probs.argmax())
+    confidence = float(cls_probs[cls_idx])
 
     all_scores = sorted(
-        [(CLASSES[i], cls_probs[i].item()) for i in range(len(CLASSES))],
+        [(CLASSES[i], float(cls_probs[i])) for i in range(NUM_CLASSES)],
         key=lambda x: x[1], reverse=True
     )
 
