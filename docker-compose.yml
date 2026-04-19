@@ -55,7 +55,6 @@ services:
     env_file:
       - ./ai_service/.env
     volumes:
-      - ./ai_service:/app
       - shared-uploads:/uploads
     networks:
       - srms-network
