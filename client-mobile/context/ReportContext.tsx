@@ -25,7 +25,7 @@ interface ReportContextType {
   error: string | null;
   addReport: (report: {
     image: string;
-    description?: string;
+    userDescription?: string;
     userCategory?: string;
     userCategoryLabel?: string;
     latitude: number;
@@ -70,7 +70,7 @@ export function ReportProvider({ children }: { children: ReactNode }) {
 
   const addReport = async (report: {
     image: string;
-    description?: string;
+    userDescription?: string;
     userCategory?: string;
     userCategoryLabel?: string;
     latitude: number;
@@ -83,7 +83,7 @@ export function ReportProvider({ children }: { children: ReactNode }) {
 
       await reportsApi.createReport({
         image: report.image,
-        description: report.description,
+        userDescription: report.userDescription,
         userCategory: report.userCategory,
         latitude: report.latitude,
         longitude: report.longitude,

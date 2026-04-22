@@ -10,15 +10,34 @@ export const createReport = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    const { description, userCategory, latitude, longitude } = req.body;
+    const { userDescription, userCategory, latitude, longitude } = req.body;
+
+    let parsedLat: number | undefined;
+    let parsedLng: number | undefined;
+
+    if (latitude !== undefined) {
+      parsedLat = parseFloat(latitude);
+      if (isNaN(parsedLat)) {
+        res.status(400).json({ message: 'Invalid latitude value' });
+        return;
+      }
+    }
+
+    if (longitude !== undefined) {
+      parsedLng = parseFloat(longitude);
+      if (isNaN(parsedLng)) {
+        res.status(400).json({ message: 'Invalid longitude value' });
+        return;
+      }
+    }
 
     const report = await reportService.createReport({
       userId: req.user!.id,
       imagePath: req.file.path,
-      description,
+      userDescription,
       userCategory,
-      latitude: latitude ? parseFloat(latitude) : undefined,
-      longitude: longitude ? parseFloat(longitude) : undefined,
+      latitude: parsedLat,
+      longitude: parsedLng,
     });
 
     res.status(201).json(report);
@@ -47,7 +66,7 @@ export const getMyReports = async (req: Request, res: Response, next: NextFuncti
 //ADMIN (DESKTOP) + DEPARTMENT (EMPLOYEE)
 export const getAllReports = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { category, priority, unit, status, reviewFlag } = req.query;
+    const { category, priority, unit, status, reviewStatus } = req.query;
 
     const str = (v: unknown) => (Array.isArray(v) ? v[0] : v) as string | undefined;
 
@@ -56,7 +75,7 @@ export const getAllReports = async (req: Request, res: Response, next: NextFunct
       priority: str(priority),
       unit: str(unit),
       status: str(status),
-      reviewFlag: reviewFlag === 'true' ? true : reviewFlag === 'false' ? false : undefined,
+      reviewStatus: str(reviewStatus),
     });
 
     res.json(reports);
@@ -92,17 +111,38 @@ export const deleteReport = async (req: Request, res: Response, next: NextFuncti
 };
 
 
-//ADMIN (DESKTOP) + DEPARTMENT (EMPLOYEE)
+//REVIEW ROLE ONLY
 export const reviewReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { status, staffNote } = req.body;
+    const { staffNote, reviewStatus, rejectReason, aiCategory, aiPriority, aiUnit } = req.body;
 
-    if (!['approved', 'rejected', 'redirected'].includes(status)) {
-      res.status(400).json({ message: 'Invalid status value' });
+    if (reviewStatus !== undefined && !['approved', 'corrected', 'rejected'].includes(reviewStatus)) {
+      res.status(400).json({ message: 'Invalid reviewStatus value' });
       return;
     }
 
-    const report = await reportService.reviewReport(String(req.params.id), { status, staffNote });
+    const report = await reportService.reviewReport(String(req.params.id), {
+      staffNote, reviewStatus, rejectReason, aiCategory, aiPriority, aiUnit,
+    });
+    res.json(report);
+  } catch (err) {
+    next(err);
+  }
+};
+
+//EMERGENCY ROLE ONLY
+export const forwardReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { forwardStatus, forwardNote } = req.body;
+
+    if (!forwardStatus || !['forwarded', 'acknowledged', 'in_progress', 'completed'].includes(forwardStatus)) {
+      res.status(400).json({ message: 'Invalid forwardStatus value' });
+      return;
+    }
+
+    const report = await reportService.forwardReport(String(req.params.id), {
+      forwardStatus, forwardNote,
+    });
     res.json(report);
   } catch (err) {
     next(err);

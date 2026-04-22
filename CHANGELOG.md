@@ -9,6 +9,186 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.5.0] - 2026-04-22
+
+### Service Core (Backend)
+
+#### Added
+- `POST /auth/logout` endpoint — adds the caller's JWT token to an in-memory blacklist `Set`; `authenticate` middleware now checks the blacklist on every request and returns `401` for revoked tokens. Previously, logout only cleared `localStorage`; the token remained valid on the backend for its full 7-day lifetime.
+- `tokenBlacklist.ts` service — exposes `addToBlacklist` / `isBlacklisted`. Switching to Redis in the future only requires changing this module; middleware and controller are unaffected.
+- Seed script extended with 11 mock reports covering every workflow state (`pending`, `approved`, `corrected`, `rejected`, `forwarded`, `completed`). The database was previously empty, making end-to-end flow testing impossible.
+- `Report` model exported from `models/index.ts` — seed script and other imports were failing with a build error because `db.Report` was not resolvable.
+
+#### Changed
+- `PATCH /reports/:id/review` is now restricted to the `review` role via `authorize('review')` middleware. Previously the `emergency` role could also call this endpoint.
+- `PATCH /reports/:id/forward` introduced as a dedicated endpoint restricted to the `emergency` role. Review and forward operations previously shared a single endpoint with no role separation.
+- `DELETE /reports/:id` restricted to `super_admin` role.
+- `reviewReport` and `forwardReport` extracted into separate service functions — a single function was previously handling both concerns.
+
+---
+
+### Client Admin — Types & Utilities
+
+#### Added
+- `Report` interface extended with five new fields: `reviewStatus`, `rejectReason`, `forwardNote`, `forwardStatus`, `aiConfidence` — aligns with backend model; resolves prior TypeScript compile errors.
+- `TabState` extended with `review` and `emergency`. `UserRole` type introduced.
+- `getConfidenceLabel`, `getConfidenceColor`, `getReviewStatusLabel`, `getForwardStatusLabel`, `getRoleLabel` helper functions.
+- `CATEGORY_TO_UNIT` map mirroring `model.py` `DEPARTMENT_MAP` — responsible unit is derived automatically from the selected category; manual unit selection is no longer needed.
+
+#### Changed
+- `mapReport` fixed: `userDescription` was incorrectly read from `r.description`; now read from its own field.
+- Status label for `redirected` changed to **"Acil Müdahalede"** — the previous label "İnceleniyor" implied the report was still in the review queue, even though review had already concluded.
+- `getRoleLabel`: `emergency` → `"Müdahale Yetkilisi"`.
+
+#### Removed
+- Dead `approved → çözüldü` mapping removed from `utils.ts` — the backend never returns `status: 'approved'`.
+
+---
+
+### Client Admin — App.tsx
+
+#### Added
+- Session restore via `GET /auth/me` on mount — `userRole` was always resetting to the `super_admin` default after page refresh; the real role is now read from the stored token.
+- Role-based default tab on login: `review` → Review Queue, `emergency` → Emergency tab.
+- Full state management and handlers for `InspectionModal`, `ReviewModal`, `RejectModal`, `ForwardModal`, and a new read-only `archiveModal` for completed reports.
+- Role-based `onReportClick` handler for map markers: `review` → InspectionModal, `emergency` → ForwardModal (read-only archive modal if completed), `super_admin` → DetailModal.
+
+#### Changed
+- `handleForwardSave` migrated to `PATCH /reports/:id/forward`.
+
+---
+
+### Client Admin — NavTabs & Topbar
+
+#### Added
+- Role-based tab sets: `super_admin` sees 5 tabs, `review` sees 3 (Dashboard / Review Queue / Map), `emergency` sees 3 (Dashboard / Müdahale / Map).
+- Pending-count badges on Review Queue and Emergency tabs.
+- Role-scoped topbar indicators: `review` sees only the review counter, `emergency` sees only the emergency counter, `super_admin` sees both.
+
+#### Changed
+- Tab label "Acil Müdahale" → **"Müdahale"**.
+- Topbar indicator label "Kritik" → **"Acil"** — the counter includes both `kritik` and `yuksek` reports; "Kritik" was misleading.
+- User dropdown aligned to the right (`right: 0`) — the previous `translateX(50%)` centering caused overflow on narrow viewports.
+
+---
+
+### Client Admin — Dashboard
+
+#### Added
+- Three role-specific dashboards:
+  - `super_admin`: 5 KPI cards + Review/Emergency unit shortcut cards + recent 5 reports compact list.
+  - `review`: Hero banner (pending count + "İncelemeye Başla" CTA) + 4 KPI cards + low-confidence and critical-priority risk indicators + prioritised pending-reports table with inline Approve / Reject actions.
+  - `emergency`: Hero banner (active emergency count + contextual message) + 4 KPI cards + unforwarded-critical alert + top-5 critical reports table with inline Forward / Update / Note actions.
+
+#### Changed
+- `emergencyTotal` (Dashboard) and `emergencyCount` (App.tsx) now exclude `forwardStatus === 'completed'` reports — completed reports were inflating the Topbar badge, NavTabs badge, and Dashboard KPI counts.
+- `emergencyTableReports` filtered to exclude completed reports — completed reports were appearing alongside active ones in the dashboard table.
+- "Son 5 Bildirim" replaced from an 8-column table to a **compact card list** — each row shows criticality badge, category, description, status badge, and timestamp on a single line.
+
+---
+
+### Client Admin — Review Queue & Modals
+
+#### Added
+- `ReviewQueue` component — all pending reports sorted by confidence score; purple banner, confidence filter, inline Approve / Correct / Reject actions.
+- `InspectionModal` — report detail with action selection; Approve goes through a confirmation screen, Reject directly opens `RejectModal` (redundant confirm step removed).
+- `ReviewModal` — category and priority correction; responsible unit is derived automatically from `CATEGORY_TO_UNIT`, no manual selection.
+- `RejectModal` — mandatory rejection reason field; cannot be submitted empty.
+
+#### Fixed
+- ReviewQueue banner displayed `%70` confidence threshold while `CONFIDENCE_THRESHOLD = 0.60` was the actual value — corrected to `%60`.
+
+---
+
+### Client Admin — Emergency Queue & ForwardModal
+
+#### Added
+- `EmergencyReports` component — Acil / Normal / Arşiv tabs with sorting, category filter, and search.
+- **Archive tab** — completed reports (`forwardStatus === 'completed'`) are separated from the active queue; active queue no longer mixed with finished work.
+- Truncated `forwardNote` shown beneath the description in archive rows (`📝 note content...`).
+- Clicking an archive row opens a **read-only ForwardModal** — full intervention note, location, and descriptions are visible; no edits possible.
+- **Delete button** for `super_admin` in the archive tab — uses the existing `DELETE /reports/:id` endpoint via `DeleteModal` confirmation.
+- Contextual colour-coded info banner per tab: Acil → red, Normal → blue, Arşiv → green; report count shown on the right.
+- `readOnly` prop on `ForwardModal` — footer shows only a "Kapat" button; form fields are locked.
+
+#### Fixed
+- `ForwardModal` was showing `report.address` in the unit field — corrected to `report.aiUnit`.
+- Emergency officers could open a completed report from the map marker and edit the intervention note via `ForwardModal`. Completed reports are now routed to the read-only archive modal.
+
+#### Changed
+- `ForwardModal` now displays a location row — tappable "🗺️ Haritada Gör" link when coordinates are present, plain address otherwise.
+- AI description and user description shown side-by-side in a two-column grid.
+- When `forwardStatus === 'completed'`, the status dropdown is replaced with a read-only "Tamamlandı" display (terminal state).
+- Button label for completed reports changed from "Güncelle" to **"Not Ekle"** (opacity 0.5).
+
+---
+
+### Client Admin — Map
+
+#### Added
+- "Raporu Görüntüle" button in map popups.
+- `onReportClick` prop on `MapView` — role-based modal dispatch on marker click.
+
+---
+
+### Client Admin — CSS
+
+#### Added
+- `--review-color`, `--emergency-color` CSS custom properties.
+- `btn-approve`, `btn-correct`, `btn-reject`, `btn-forward` button styles.
+- `badge-review-*`, `badge-forward-*` badge classes for `reviewStatus` and `forwardStatus` visual mapping.
+- NavTab badge styles for pending-count indicators.
+- `login-role-select` style.
+
+---
+
+### Client Mobile
+
+#### Fixed
+- Report list was showing `aiUnit` (department name) in the address field due to `address: r.aiUnit` mapping error — corrected to `address: r.address || ''`.
+- `redirected` status now displayed as **"İşleme Alındı"** in the citizen UI — operational terms such as "Acil Müdahalede" were surfacing internal workflow detail to citizens unnecessarily.
+
+#### Changed
+- `expo-cli` global install removed from Dockerfile — `npx expo` already pulls the package; the extra layer was unnecessary.
+- Expo DevTools ports (19000–19002) removed from `docker-compose.yml` — not used by modern Expo CLI.
+
+---
+
+## [0.4.0] - 2026-04-15
+
+### Service Core (Backend)
+
+#### Added
+- `reviewStatus` field on `Report` model — enum(`pending`, `approved`, `corrected`, `rejected`). Set to `pending` automatically when AI confidence < 0.60.
+- `rejectReason` field on `Report` model — mandatory rejection reason entered by reviewer.
+- `forwardNote` field on `Report` model — intervention note when report is forwarded to a municipal unit.
+- `forwardStatus` field on `Report` model — enum(`iletildi`, `goruldu`, `islemde`, `tamamlandi`) for forwarding progress tracking.
+- `PATCH /reports/:id/review` now accepts `reviewStatus`, `rejectReason`, `forwardNote`, `forwardStatus`, `aiCategory`, `aiPriority` with enum validation.
+- `GET /reports` now supports `?reviewStatus=` query filter.
+
+#### Changed
+- `description` column renamed to `userDescription` to distinguish from `aiDescription`.
+- `reviewFlag` (boolean) replaced by `reviewStatus` (enum) — eliminates redundant dual-field state.
+
+#### Removed
+- `reviewFlag` boolean field removed from `Report` model and all service/controller references.
+
+---
+
+### Client Mobile
+
+#### Changed
+- `description` → `userDescription` in `reportsApi.ts`, `ReportContext.tsx`, and `report.tsx` to match backend rename.
+
+---
+
+### Infrastructure
+
+#### Changed
+- `**/.env` added to root `.gitignore` to ensure all subdirectory `.env` files are excluded from version control.
+
+---
+
 ## [0.3.0] - 2026-04-15
 
 ### Client Mobile
@@ -61,7 +241,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Client Admin
 
 #### Changed
-- Refactored `client-admin` from vanilla HTML/JS to a modular Vite-based React application.
+- Refactored `client-admin` from a single monolithic `index.html` (1729 lines of vanilla HTML/JS) to a Vite + React + TypeScript application with a component-based architecture.
+- Introduced dedicated components: `LoginScreen`, `Dashboard`, `Reports`, `DetailModal`, `DeleteModal`, `Map`, `NavTabs`, `Topbar`.
+- Added `types.ts` for shared TypeScript interfaces, `utils.ts` for label/mapping helpers, `api.ts` for centralised API calls.
+- Added `nginx.conf` for SPA routing and `/api` reverse proxy, `Dockerfile` for containerised builds.
 - Resolved 405 API routing errors by implementing a Vite dev server proxy setup pointing to the backend.
 
 ### AI Service

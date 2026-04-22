@@ -24,31 +24,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, loading, erro
           <h1>Yönetim Paneli</h1>
           <p>Altyapı Bildirim Sistemi</p>
         </div>
-        
+
         {error && <div className="login-error" style={{ display: 'block' }}>{error}</div>}
-        
+
         <form onSubmit={handleSubmit}>
           <div className="login-field">
             <label>E-posta</label>
-            <input 
-              type="email" 
-              placeholder="admin@ankara.bel.tr" 
+            <input
+              type="email"
+              placeholder="ad.soyad@ankara.bel.tr"
               value={email}
               onChange={e => setEmail(e.target.value)}
             />
           </div>
           <div className="login-field">
             <label>Şifre</label>
-            <input 
-              type="password" 
-              placeholder="••••••••" 
+            <input
+              type="password"
+              placeholder="••••••••"
               value={password}
               onChange={e => setPassword(e.target.value)}
             />
           </div>
-          <button 
-            type="submit" 
-            className="login-btn" 
+          <button
+            type="submit"
+            className="login-btn"
             disabled={loading || !email || !password}
           >
             {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}

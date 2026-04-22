@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import { JWT_SECRET } from '../config/env.js';
+import { isBlacklisted } from '../services/tokenBlacklist.js';
 
 interface JwtPayload {
   id: string;
@@ -25,6 +26,10 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
 
   try {
     const token = header.split(' ')[1];
+    if (isBlacklisted(token)) {
+      res.status(401).json({ message: 'Oturum sonlandırıldı, lütfen tekrar giriş yapın' });
+      return;
+    }
     const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
     req.user = decoded;
     next();

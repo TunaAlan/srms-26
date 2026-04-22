@@ -10,9 +10,17 @@ export interface Report {
   longitude: number;
   address: string;
   timestamp: number;
-  status: 'beklemede' | 'inceleniyor' | 'cozuldu' | 'reddedildi';
+  status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
   criticality: 'kritik' | 'yuksek' | 'orta' | 'dusuk';
   resolution: string;
+  reviewStatus: 'pending' | 'approved' | 'corrected' | 'rejected' | null;
+  rejectReason: string | null;
+  forwardNote: string | null;
+  forwardStatus: 'forwarded' | 'completed' | null;
+  aiConfidence: number | null;
+  aiUnit: string | null;
 }
 
-export type TabState = 'dashboard' | 'reports' | 'map';
+export type TabState = 'dashboard' | 'reports' | 'map' | 'review' | 'emergency';
+
+export type UserRole = 'super_admin' | 'review' | 'emergency';

@@ -13,11 +13,33 @@ export async function apiFetch(path: string, options: any = {}): Promise<any> {
       ...(options.headers || {}),
     },
   });
+
+  if (res.status === 204) {
+    return null; // No Content
+  }
+
   if (res.status === 401) {
     localStorage.removeItem('srms_token');
     return null;
   }
-  return res.json();
+
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    throw new Error(data?.message || `Sunucu Hatası: ${res.status}`);
+  }
+
+  return data;
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await apiFetch('/auth/logout', { method: 'POST' });
+  } catch {
+    // If the token is already invalid, just proceed silently.
+  } finally {
+    localStorage.removeItem('srms_token');
+  }
 }
 
 export async function login(email: string, password: string): Promise<any> {
@@ -28,7 +50,7 @@ export async function login(email: string, password: string): Promise<any> {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Giriş başarısız');
-  if (data.user.role !== 'admin' && data.user.role !== 'department') {
+  if (!['super_admin', 'review', 'emergency'].includes(data.user.role)) {
     throw new Error('Bu panele erişim yetkiniz yok.');
   }
   return data;

@@ -123,7 +123,7 @@ export default function ReportScreen() {
     setSubmitting(true);
     const success = await addReport({
       image,
-      description: description.trim() || undefined,
+      userDescription: description.trim() || undefined,
       userCategory: category || undefined,
       userCategoryLabel: selectedCat?.label,
       latitude: location?.latitude || 0,

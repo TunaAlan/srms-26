@@ -1,22 +1,15 @@
 import { AI_SERVICE_URL } from '../config/env.js';
 
 export interface AiResult {
-  rejected: false;
   category: string;
   priority: number;
   priorityLabel: string;
   confidence: number;
   department: string;
   description: string;
-  needsReview: boolean;
 }
 
-export interface AiRejected {
-  rejected: true;
-  rejectReason: string;
-}
-
-export async function analyzeImage(imagePath: string): Promise<AiResult | AiRejected> {
+export async function analyzeImage(imagePath: string): Promise<AiResult> {
   // imagePath from multer: "uploads/abc.jpg"
   // AI service expects: "/uploads/abc.jpg"
   const filename = imagePath.replace(/^uploads\//, '');
@@ -51,20 +44,22 @@ export async function analyzeImage(imagePath: string): Promise<AiResult | AiReje
 
   if (data.rejected) {
     return {
-      rejected: true,
-      rejectReason: data.reject_reason ?? 'Rejected by AI',
+      category: 'irrelevant',
+      priority: 0,
+      priorityLabel: 'Irrelevant',
+      confidence: 0,
+      department: '-',
+      description: data.reject_reason ?? '',
     };
   }
 
   return {
-    rejected: false,
-    category: data.category!,
-    priority: data.priority!,
-    priorityLabel: data.priority_label!,
-    confidence: data.confidence!,
-    department: data.department!,
-    description: data.description!,
-    needsReview: data.needs_review!,
+    category: data.category ?? 'unclassified',
+    priority: data.priority ?? 0,
+    priorityLabel: data.priority_label ?? 'Unknown',
+    confidence: data.confidence ?? 0,
+    department: data.department ?? '-',
+    description: data.description ?? '',
   };
 }
 

@@ -6,7 +6,6 @@ interface RegisterInput {
   name: string;
   email: string;
   password: string;
-  role?: string;
 }
 
 interface LoginInput {
@@ -22,7 +21,7 @@ const generateToken = (user: User): string => {
   );
 };
 
-export const register = async ({ name, email, password, role }: RegisterInput) => {
+export const register = async ({ name, email, password }: RegisterInput) => {
   const existing = await User.findOne({ where: { email } });
   if (existing) {
     const err = Object.assign(new Error('Bu e-posta adresi zaten kayıtlı'), { statusCode: 409 });
@@ -33,7 +32,7 @@ export const register = async ({ name, email, password, role }: RegisterInput) =
     name,
     email,
     password,
-    role: (role as 'user' | 'admin' | 'department') || 'user',
+    role: 'user',
   });
   const token = generateToken(user);
   return { user: user.toSafeJSON(), token };

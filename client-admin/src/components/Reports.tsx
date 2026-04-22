@@ -1,9 +1,16 @@
-import React from 'react';
-import type { Report } from '../types';
+import React, { useState } from 'react';
+import type { Report, UserRole } from '../types';
 import { getTimeAgo, getStatusLabel, getCriticalityLabel } from '../utils';
+
+type SortKey = 'category' | 'status' | 'criticality' | 'timestamp';
+type SortDir = 'asc' | 'desc';
+
+const STATUS_ORDER: Record<string, number> = { pending: 0, in_progress: 1, resolved: 2, rejected: 3 };
+const CRIT_ORDER: Record<string, number>   = { kritik: 0, yuksek: 1, orta: 2, dusuk: 3 };
 
 interface ReportsListProps {
   reports: Report[];
+  role: UserRole;
   filterStatus: string;
   setFilterStatus: (val: string) => void;
   filterCategory: string;
@@ -18,6 +25,7 @@ interface ReportsListProps {
 
 export const ReportsList: React.FC<ReportsListProps> = ({
   reports,
+  role,
   filterStatus,
   setFilterStatus,
   filterCategory,
@@ -29,6 +37,18 @@ export const ReportsList: React.FC<ReportsListProps> = ({
   onView,
   onDelete,
 }) => {
+  const [sortKey, setSortKey] = useState<SortKey>('timestamp');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'timestamp' ? 'desc' : 'asc');
+    }
+  };
+
   const filtered = reports.filter((r) => {
     if (filterStatus !== 'all' && r.status !== filterStatus) return false;
     if (filterCategory !== 'all' && r.category !== filterCategory) return false;
@@ -44,15 +64,31 @@ export const ReportsList: React.FC<ReportsListProps> = ({
     return true;
   });
 
+  const sorted = [...filtered].sort((a, b) => {
+    let cmp = 0;
+    if (sortKey === 'category')    cmp = a.categoryLabel.localeCompare(b.categoryLabel, 'tr');
+    if (sortKey === 'status')      cmp = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9);
+    if (sortKey === 'criticality') cmp = (CRIT_ORDER[a.criticality] ?? 9) - (CRIT_ORDER[b.criticality] ?? 9);
+    if (sortKey === 'timestamp')   cmp = a.timestamp - b.timestamp;
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <span style={{ opacity: 0.3, marginLeft: 4 }}>↕</span>;
+    return <span style={{ marginLeft: 4, color: 'var(--primary)' }}>{sortDir === 'asc' ? '↑' : '↓'}</span>;
+  };
+
+  const thStyle: React.CSSProperties = { cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' };
+
   return (
     <>
       <div className="filters-bar">
         <span className="filter-label">Filtrele:</span>
         <select className="filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
           <option value="all">Tüm Durumlar</option>
-          <option value="beklemede">Beklemede</option>
-          <option value="inceleniyor">İnceleniyor</option>
-          <option value="cozuldu">Çözüldü</option>
+          <option value="pending">Beklemede</option>
+          <option value="in_progress">İşlemde</option>
+          <option value="resolved">Çözüldü</option>
         </select>
         <select className="filter-select" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
           <option value="all">Tüm Kategoriler</option>
@@ -78,17 +114,17 @@ export const ReportsList: React.FC<ReportsListProps> = ({
           <option value="orta">Orta</option>
           <option value="dusuk">Düşük</option>
         </select>
-        <input 
-          type="text" 
-          className="filter-search" 
-          placeholder="🔍 Ara... (açıklama, adres, kategori)" 
+        <input
+          type="text"
+          className="filter-search"
+          placeholder="🔍 Ara... (açıklama, adres, kategori)"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
 
       <div className="table-container">
-        {filtered.length === 0 ? (
+        {sorted.length === 0 ? (
           <div className="empty-state">
             <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
             <div style={{ fontSize: '16px', fontWeight: 600 }}>Sonuç Bulunamadı</div>
@@ -100,15 +136,23 @@ export const ReportsList: React.FC<ReportsListProps> = ({
               <tr>
                 <th>Fotoğraf</th>
                 <th>Açıklama / Konum</th>
-                <th>Kategori</th>
-                <th>Durum</th>
-                <th>Aciliyet</th>
-                <th>Zaman</th>
+                <th style={thStyle} onClick={() => handleSort('category')}>
+                  Kategori <SortIcon col="category" />
+                </th>
+                <th style={thStyle} onClick={() => handleSort('status')}>
+                  Durum <SortIcon col="status" />
+                </th>
+                <th style={thStyle} onClick={() => handleSort('criticality')}>
+                  Aciliyet <SortIcon col="criticality" />
+                </th>
+                <th style={thStyle} onClick={() => handleSort('timestamp')}>
+                  Zaman <SortIcon col="timestamp" />
+                </th>
                 <th>İşlemler</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => {
+              {sorted.map((r) => {
                 let badgeDotColor = 'var(--low)';
                 if (r.criticality === 'kritik') badgeDotColor = 'var(--critical)';
                 else if (r.criticality === 'yuksek') badgeDotColor = 'var(--high)';
@@ -117,15 +161,18 @@ export const ReportsList: React.FC<ReportsListProps> = ({
                 return (
                   <tr key={r.id}>
                     <td>
-                      <img 
-                        src={r.image || ''} 
-                        className="report-image" 
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} 
+                      <img
+                        src={r.image || ''}
+                        className="report-image"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                       />
                     </td>
                     <td>
                       <div className="report-desc">{r.description}</div>
-                      <div className="report-address">📍 {r.address}</div>
+                      <div className="report-address">
+                        {r.address && <span>📍 {r.address}</span>}
+                        {r.aiUnit && <span style={{ marginLeft: r.address ? '8px' : '0' }}>🏢 {r.aiUnit}</span>}
+                      </div>
                       {r.resolution && <div className="resolution-note">✅ {r.resolution}</div>}
                     </td>
                     <td>
@@ -147,8 +194,10 @@ export const ReportsList: React.FC<ReportsListProps> = ({
                     <td className="time-cell">{getTimeAgo(r.timestamp)}</td>
                     <td>
                       <div className="actions-cell">
-                        <button className="btn btn-status" onClick={() => onView(r.id)} title="Detay / Düzenle">✏️</button>
-                        <button className="btn btn-delete" onClick={() => onDelete(r.id)} title="Sil">🗑️</button>
+                        <button className="btn btn-status" onClick={() => onView(r.id)} title="Detay">👁️ Detay</button>
+                        {role === 'super_admin' && (
+                          <button className="btn btn-delete" onClick={() => onDelete(r.id)} title="Sil">🗑️</button>
+                        )}
                       </div>
                     </td>
                   </tr>

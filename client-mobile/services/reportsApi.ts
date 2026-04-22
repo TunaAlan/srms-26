@@ -14,13 +14,13 @@ export interface Report {
   longitude: number;
   address: string;
   timestamp: number;
-  status: 'beklemede' | 'inceleniyor' | 'cozuldu' | 'reddedildi';
+  status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
   criticality: 'kritik' | 'yuksek' | 'orta' | 'dusuk';
 }
 
 export interface CreateReportRequest {
   image: string; // local URI
-  description?: string;
+  userDescription?: string;
   userCategory?: string;
   latitude: number;
   longitude: number;
@@ -38,20 +38,20 @@ export interface ReportsApiClient {
 
 
 const CATEGORY_LABEL_MAP: Record<string, string> = {
-  road_damage:      'Yol Hasarı',
-  sidewalk_damage:  'Kaldırım Hasarı',
-  waste:            'Çöp / Atık',
-  pollution:        'Çevre Kirliliği',
-  green_space:      'Yeşil Alan',
-  lighting:         'Aydınlatma',
-  traffic_sign:     'Trafik İşareti',
-  sewage_water:     'Kanalizasyon / Su',
-  infrastructure:   'Altyapı',
-  vandalism:        'Vandalizm',
-  stray_animal:     'Başıboş Hayvan',
+  road_damage: 'Yol Hasarı',
+  sidewalk_damage: 'Kaldırım Hasarı',
+  waste: 'Çöp / Atık',
+  pollution: 'Çevre Kirliliği',
+  green_space: 'Yeşil Alan',
+  lighting: 'Aydınlatma',
+  traffic_sign: 'Trafik İşareti',
+  sewage_water: 'Kanalizasyon / Su',
+  infrastructure: 'Altyapı',
+  vandalism: 'Vandalizm',
+  stray_animal: 'Başıboş Hayvan',
   natural_disaster: 'Doğal Afet',
-  normal:           'Normal',
-  irrelevant:       'İlgisiz',
+  normal: 'Normal',
+  irrelevant: 'İlgisiz',
 };
 
 function mapPriority(priority: string | null): Report['criticality'] {
@@ -65,10 +65,10 @@ function mapPriority(priority: string | null): Report['criticality'] {
 
 function mapReportFromApi(r: Record<string, any>): Report {
   const STATUS_MAP: Record<string, Report['status']> = {
-    pending: 'beklemede',
-    approved: 'cozuldu',
-    rejected: 'reddedildi',
-    redirected: 'inceleniyor',
+    pending: 'pending',
+    in_progress: 'in_progress',
+    resolved: 'resolved',
+    rejected: 'rejected',
   };
 
   const filename = r.imagePath ? r.imagePath.split('/').pop() : null;
@@ -76,8 +76,8 @@ function mapReportFromApi(r: Record<string, any>): Report {
   return {
     id: r.id,
     image: filename ? `${ENV.API_BASE_URL}/reports/images/${filename}` : '',
-    description: r.aiDescription || r.description || '',
-    userDescription: r.description || '',
+    description: r.aiDescription || r.userDescription || '',
+    userDescription: r.userDescription || '',
     aiDescription: r.aiDescription || '',
     category: r.aiCategory || '',
     categoryLabel: CATEGORY_LABEL_MAP[r.aiCategory] || r.aiCategory || 'Diğer',
@@ -126,7 +126,7 @@ class ReportsApiClientImpl implements ReportsApiClient {
       type: 'image/jpeg',
       name: 'photo.jpg',
     } as any);
-    if (data.description) formData.append('description', data.description);
+    if (data.userDescription) formData.append('userDescription', data.userDescription);
     if (data.userCategory) formData.append('userCategory', data.userCategory);
     formData.append('latitude', String(data.latitude));
     formData.append('longitude', String(data.longitude));

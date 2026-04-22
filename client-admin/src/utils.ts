@@ -12,10 +12,10 @@ export function getTimeAgo(ts: number): string {
 export function getStatusLabel(s: string): string {
   return (
     ({
-      beklemede: 'Beklemede',
-      inceleniyor: 'İnceleniyor',
-      cozuldu: 'Çözüldü',
-      reddedildi: 'Reddedildi',
+      pending:     'Beklemede',
+      in_progress: 'İşlemde',
+      resolved:    'Çözüldü',
+      rejected:    'Reddedildi',
     } as Record<string, string>)[s] || s
   );
 }
@@ -51,18 +51,19 @@ export function getCategoryLabel(id: string): string {
 }
 
 const _STATUS_TO_UI: Record<string, string> = {
-  pending: 'beklemede',
-  approved: 'cozuldu',
-  rejected: 'reddedildi',
-  redirected: 'inceleniyor',
+  pending:     'pending',
+  in_progress: 'in_progress',
+  resolved:    'resolved',
+  rejected:    'rejected',
 };
+
 
 function mapPriority(priority?: string): 'kritik' | 'yuksek' | 'orta' | 'dusuk' {
   if (!priority) return 'dusuk';
   const p = priority.toLowerCase();
-  if (p.includes('critical') || p.includes('5')) return 'kritik';
-  if (p.includes('high') || p.includes('4')) return 'yuksek';
-  if (p.includes('medium') || p.includes('3')) return 'orta';
+  if (p.includes('critical') || p.includes('kritik') || p.includes('5')) return 'kritik';
+  if (p.includes('high') || p.includes('yuksek') || p.includes('yüksek') || p.includes('4')) return 'yuksek';
+  if (p.includes('medium') || p.includes('orta') || p.includes('3')) return 'orta';
   return 'dusuk';
 }
 
@@ -72,16 +73,66 @@ export function mapReport(r: any): any {
     id: r.id,
     image: filename ? `/api/reports/images/${filename}` : null,
     description: r.aiDescription || '',
-    userDescription: r.description || '',
+    userDescription: r.userDescription || '',
     category: r.aiCategory || '',
     categoryLabel: CATEGORY_LABEL_MAP[r.aiCategory] || r.aiCategory || 'Diğer',
     userCategory: r.userCategory || '',
     latitude: r.latitude || 0,
     longitude: r.longitude || 0,
-    address: r.aiUnit || '',
+    address: r.address || '',
+    aiUnit: r.aiUnit || null,
     timestamp: new Date(r.createdAt).getTime(),
-    status: _STATUS_TO_UI[r.status] || 'beklemede',
+    status: _STATUS_TO_UI[r.status] || 'pending',
     criticality: mapPriority(r.aiPriority),
     resolution: r.staffNote || '',
+    reviewStatus: r.reviewStatus || null,
+    rejectReason: r.rejectReason || null,
+    forwardNote: r.forwardNote || null,
+    forwardStatus: r.forwardStatus || null,
+    aiConfidence: r.aiConfidence ?? null,
   };
+}
+
+export function getConfidenceColor(confidence: number | null): string {
+  if (confidence === null) return 'var(--text-tertiary)';
+  if (confidence >= 0.8) return 'var(--success)';
+  if (confidence >= 0.6) return 'var(--warning)';
+  return 'var(--danger)';
+}
+
+export function getConfidenceLabel(confidence: number | null): string {
+  if (confidence === null) return '—';
+  return `${Math.round(confidence * 100)}%`;
+}
+
+export function getReviewStatusLabel(s: string | null): string {
+  if (!s) return '—';
+  return (
+    ({
+      pending: 'Bekliyor',
+      approved: 'Onaylandı',
+      corrected: 'Düzeltildi',
+      rejected: 'Reddedildi',
+    } as Record<string, string>)[s] || s
+  );
+}
+
+export function getForwardStatusLabel(s: string | null): string {
+  if (!s) return '—';
+  return (
+    ({
+      forwarded: 'İletildi',
+      completed: 'Tamamlandı',
+    } as Record<string, string>)[s] || s
+  );
+}
+
+export function getRoleLabel(role: string): string {
+  return (
+    ({
+      super_admin: 'Süper Admin',
+      review: 'İnceleme Yetkilisi',
+      emergency: 'Müdahale Yetkilisi',
+    } as Record<string, string>)[role] || role
+  );
 }

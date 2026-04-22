@@ -1,25 +1,21 @@
-import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import type { Report } from '../types';
 import { getStatusLabel, getCriticalityLabel } from '../utils';
 
-// We need to disable default markers correctly, but here we provide custom divIcons anyway.
-
 interface MapViewProps {
   reports: Report[];
+  focusReport?: Report | null;
+  onReportClick?: (report: Report) => void;
 }
 
-const catColors: Record<string, string> = {
-  yol: '#E8651A',
-  su: '#0288D1',
-  elektrik: '#E8A317',
-  bina: '#7B1FA2',
-  park: '#0D9E4F',
-  cop: '#5D4037',
-  gaz: '#D32F2F',
-  diger: '#8E95A8',
+const statusColors: Record<string, string> = {
+  pending:     '#E8A317',
+  in_progress: '#0288D1',
+  resolved:    '#0D9E4F',
+  rejected:    '#D32F2F',
 };
 
 const critColors: Record<string, string> = {
@@ -29,7 +25,18 @@ const critColors: Record<string, string> = {
   dusuk: '#0D9E4F',
 };
 
-export const MapView: React.FC<MapViewProps> = ({ reports }) => {
+// Inner component that can use useMap() hook
+const FocusController: React.FC<{ report: Report | null | undefined }> = ({ report }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (report && report.latitude && report.longitude) {
+      map.flyTo([report.latitude, report.longitude], 16, { duration: 1.2 });
+    }
+  }, [report, map]);
+  return null;
+};
+
+export const MapView: React.FC<MapViewProps> = ({ reports, focusReport, onReportClick }) => {
   return (
     <div className="map-wrapper">
       <MapContainer 
@@ -42,16 +49,36 @@ export const MapView: React.FC<MapViewProps> = ({ reports }) => {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <MarkerClusterGroup>
+        <FocusController report={focusReport} />
+
+        <MarkerClusterGroup
+          chunkedLoading
+          showCoverageOnHover={false}
+          maxClusterRadius={60}
+          spiderfyOnMaxZoom={true}
+          spiderfyDistanceMultiplier={1.8}
+          disableClusteringAtZoom={17}
+          iconCreateFunction={(cluster: { getChildCount: () => number }) => {
+            const count = cluster.getChildCount();
+            const size = count < 5 ? 36 : count < 15 ? 44 : 52;
+            return L.divIcon({
+              html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#005BAA;border:3px solid white;box-shadow:0 2px 8px rgba(0,91,170,0.4);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:${size < 44 ? 13 : 15}px;font-family:'Plus Jakarta Sans',sans-serif;">${count}</div>`,
+              iconSize: [size, size],
+              iconAnchor: [size / 2, size / 2],
+              className: '',
+            });
+          }}
+        >
           {reports.map((r) => {
             if (!r.latitude && !r.longitude) return null;
-            const color = catColors[r.category] || '#8E95A8';
+            const color = statusColors[r.status] || '#8E95A8';
             const critColor = critColors[r.criticality] || '#8E95A8';
             
+            const isFocused = focusReport?.id === r.id;
             const icon = L.divIcon({
-              html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
-              iconSize: [24, 24],
-              iconAnchor: [12, 12],
+              html: `<div style="width:${isFocused ? 24 : 18}px;height:${isFocused ? 24 : 18}px;border-radius:50%;background:${color};border:${isFocused ? '4px solid #005BAA' : '3px solid white'};box-shadow:0 2px 6px rgba(0,0,0,0.3);transition:all 0.3s;"></div>`,
+              iconSize: [isFocused ? 32 : 24, isFocused ? 32 : 24],
+              iconAnchor: [isFocused ? 16 : 12, isFocused ? 16 : 12],
               className: '',
             });
 
@@ -72,11 +99,14 @@ export const MapView: React.FC<MapViewProps> = ({ reports }) => {
                     <div style={{ fontSize: '13px', marginBottom: '6px' }}>
                       {r.description.substring(0, 80)}...
                     </div>
-                    <div style={{ fontSize: '11px', color: '#8E95A8' }}>📍 {r.address}</div>
+                    <div style={{ fontSize: '11px', color: '#8E95A8' }}>
+                      {r.address && <span>📍 {r.address}</span>}
+                      {r.aiUnit && <span style={{ marginLeft: r.address ? '8px' : '0' }}>🏢 {r.aiUnit}</span>}
+                    </div>
                     <div style={{ marginTop: '6px', display: 'flex', gap: '4px' }}>
                       <span style={{
-                        background: r.status === 'beklemede' ? '#FFF8E6' : r.status === 'inceleniyor' ? '#E3F2FD' : r.status === 'reddedildi' ? '#FDEDED' : '#E6F7ED',
-                        color: r.status === 'beklemede' ? '#E8A317' : r.status === 'inceleniyor' ? '#0288D1' : r.status === 'reddedildi' ? '#D32F2F' : '#0D9E4F',
+                        background: r.status === 'pending' ? '#FFF8E6' : r.status === 'in_progress' ? '#E3F2FD' : r.status === 'rejected' ? '#FDEDED' : r.status === 'resolved' ? '#E6F7ED' : '#F5F5F5',
+                        color: r.status === 'pending' ? '#E8A317' : r.status === 'in_progress' ? '#0288D1' : r.status === 'rejected' ? '#D32F2F' : r.status === 'resolved' ? '#0D9E4F' : '#8E95A8',
                         padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: 700
                       }}>
                         {getStatusLabel(r.status)}
@@ -89,6 +119,19 @@ export const MapView: React.FC<MapViewProps> = ({ reports }) => {
                         {getCriticalityLabel(r.criticality)}
                       </span>
                     </div>
+                    {onReportClick && (
+                      <button
+                        onClick={() => onReportClick(r)}
+                        style={{
+                          marginTop: '8px', width: '100%', padding: '5px 0',
+                          background: '#005BAA', color: 'white', border: 'none',
+                          borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        👁️ Raporu Görüntüle
+                      </button>
+                    )}
                   </div>
                 </Popup>
               </Marker>

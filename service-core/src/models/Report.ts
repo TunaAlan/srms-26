@@ -16,7 +16,7 @@ class Report extends Model<
 
   // Submitted by user
   declare imagePath: string;
-  declare description: CreationOptional<string>;
+  declare userDescription: CreationOptional<string>;
   declare userCategory: CreationOptional<string>;
   declare latitude: CreationOptional<number>;
   declare longitude: CreationOptional<number>;
@@ -30,8 +30,11 @@ class Report extends Model<
   declare aiDescription: CreationOptional<string>;
 
   // Workflow
-  declare status: CreationOptional<'pending' | 'approved' | 'rejected' | 'redirected'>;
-  declare reviewFlag: CreationOptional<boolean>;
+  declare status: CreationOptional<'pending' | 'in_progress' | 'resolved' | 'rejected'>;
+  declare reviewStatus: CreationOptional<'pending' | 'approved' | 'corrected' | 'rejected'>;
+  declare rejectReason: CreationOptional<string>;
+  declare forwardNote: CreationOptional<string>;
+  declare forwardStatus: CreationOptional<'forwarded' | 'completed'>;
   declare staffNote: CreationOptional<string>;
 
   declare createdAt: CreationOptional<Date>;
@@ -53,7 +56,7 @@ Report.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    description: {
+    userDescription: {
       type: DataTypes.TEXT,
       allowNull: true,
     },
@@ -94,12 +97,24 @@ Report.init(
       allowNull: true,
     },
     status: {
-      type: DataTypes.ENUM('pending', 'approved', 'rejected', 'redirected'),
+      type: DataTypes.ENUM('pending', 'in_progress', 'resolved', 'rejected'),
       defaultValue: 'pending',
     },
-    reviewFlag: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
+    reviewStatus: {
+      type: DataTypes.ENUM('pending', 'approved', 'corrected', 'rejected'),
+      allowNull: true,
+    },
+    rejectReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    forwardNote: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    forwardStatus: {
+      type: DataTypes.ENUM('forwarded', 'completed'),
+      allowNull: true,
     },
     staffNote: {
       type: DataTypes.TEXT,
