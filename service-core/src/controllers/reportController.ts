@@ -125,6 +125,16 @@ export const deleteReport = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
+//ADMIN ONLY
+export const retryAnalysis = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const report = await reportService.retryAnalysis(String(req.params.id));
+    res.json(report);
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 //REVIEW ROLE ONLY
 export const reviewReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

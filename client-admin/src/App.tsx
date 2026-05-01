@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { apiFetch, login, logout as apiLogout, getToken, changeReportStatus, fetchStaff, createStaff, setStaffActive, deleteStaff } from './api';
+import { apiFetch, login, logout as apiLogout, getToken, changeReportStatus, retryReportAnalysis, fetchStaff, createStaff, setStaffActive, deleteStaff } from './api';
 import type { Report, StaffUser, TabState, UserRole } from './types';
 // StaffUser used via useState<StaffUser[]>
 import { mapReport } from './utils';
@@ -212,6 +212,15 @@ function App() {
     }
   };
 
+  const handleRetryAnalysis = async (id: string) => {
+    try {
+      await retryReportAnalysis(id);
+      patchReport(id, { aiError: false, status: 'pending' });
+    } catch (err) {
+      console.error('Yeniden analiz başlatılamadı:', err);
+    }
+  };
+
   const handleDeleteConfirm = async (id: string) => {
     try {
       await apiFetch(`/reports/${id}`, { method: 'DELETE' });
@@ -320,6 +329,7 @@ function App() {
             searchQuery={searchQuery} setSearchQuery={setSearchQuery}
             onView={(id) => { setSelectedReportId(id); setShowDetailModal(true); }}
             onDelete={(id) => { setDeleteTargetId(id); setShowDeleteModal(true); }}
+            onRetry={handleRetryAnalysis}
           />
         )}
 

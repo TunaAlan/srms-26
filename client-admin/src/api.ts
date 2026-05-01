@@ -58,6 +58,10 @@ export async function deleteStaff(id: string) {
   return apiFetch(`/users/${id}`, { method: 'DELETE' });
 }
 
+export async function retryReportAnalysis(id: string): Promise<void> {
+  await apiFetch(`/reports/${id}/retry`, { method: 'POST' });
+}
+
 export async function changeReportStatus(id: string, status: 'in_review' | 'in_progress' | 'resolved', note?: string): Promise<void> {
   await apiFetch(`/reports/${id}/status`, {
     method: 'PATCH',

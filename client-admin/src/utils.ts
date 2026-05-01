@@ -106,6 +106,7 @@ export function mapReport(r: any): any {
     status: _STATUS_TO_UI[r.status] || 'pending',
     criticality: mapPriority(r.aiPriority),
     resolution: r.staffNote || '',
+    aiError: r.aiError ?? false,
     reviewStatus: r.reviewStatus || null,
     rejectReason: r.rejectReason || null,
     reviewedByName: r.reviewer?.name ?? null,

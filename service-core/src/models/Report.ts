@@ -34,6 +34,7 @@ class Report extends Model<
   declare reviewStatus: CreationOptional<'approved' | 'corrected' | 'rejected'>;
   declare rejectReason: CreationOptional<string | null>;
   declare staffNote: CreationOptional<string>;
+  declare aiError: CreationOptional<boolean>;
   declare reviewedBy: CreationOptional<string>;
 
   declare createdAt: CreationOptional<Date>;
@@ -110,6 +111,10 @@ Report.init(
     staffNote: {
       type: DataTypes.TEXT,
       allowNull: true,
+    },
+    aiError: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
     },
     reviewedBy: {
       type: DataTypes.UUID,

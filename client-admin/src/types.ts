@@ -18,6 +18,7 @@ export interface Report {
   reviewedByName: string | null;
   aiConfidence: number | null;
   aiUnit: string | null;
+  aiError: boolean;
 }
 
 export interface StaffUser {
