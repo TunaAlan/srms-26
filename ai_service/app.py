@@ -1,21 +1,17 @@
 """
-Environmental Issue Detection v8 -- DeBERTa-v3-small Pipeline
-Fotograf -> Gemini (sadece aciklama) -> DeBERTa siniflandirir -> Sonuc
-
-Kullanim:
-  python app.py                -> interaktif mod
-  python app.py test.jpg       -> tek fotograf
-  python app.py photos/        -> klasordeki tum fotograflar
+Environmental Issue Detection v0.9.1 -- DistilBERT ONNX + Gemini
+Pipeline modulu: FastAPI main.py tarafindan import edilir.
+  Fonksiyonlar: analyze_image_bytes, check_troll, classify
 """
 
-import torch
-import torch.nn as nn
-from transformers import AutoModel, AutoTokenizer
+from pathlib import Path
 from google import genai
 from google.genai import types
-from google.genai.errors import ClientError, ServerError
-from pathlib import Path
-import time, sys, json, os
+from google.genai.errors import ClientError
+from transformers import AutoTokenizer
+import onnxruntime as ort
+import numpy as np
+import json, re, time, os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -24,8 +20,10 @@ load_dotenv()
 # AYARLAR
 # ===========================================================
 API_KEY    = os.getenv("GEMINI_API_KEY", "")
-MODEL_PATH = os.getenv("MODEL_PATH", "text_classifier_v9.pth")
-BACKBONE   = os.getenv("BACKBONE", "distilbert-base-uncased")
+_HERE      = Path(__file__).parent
+ONNX_PATH  = str(_HERE / "text_classifier_v0.9.1.onnx")
+MODEL_NAME = "distilbert-base-uncased"
+MAX_LEN    = 64
 
 CLASSES = [
     "road_damage", "sidewalk_damage", "waste", "pollution",
@@ -33,16 +31,11 @@ CLASSES = [
     "infrastructure", "vandalism", "stray_animal", "natural_disaster",
     "normal", "irrelevant"
 ]
-NUM_CLASSES    = len(CLASSES)
 NUM_PRIORITIES = 6
 
 PRIORITY_LABELS = {
-    0: "Irrelevant",
-    1: "Normal",
-    2: "Minor",
-    3: "Moderate",
-    4: "High",
-    5: "Critical",
+    0: "Irrelevant", 1: "Normal", 2: "Minor",
+    3: "Moderate",   4: "High",   5: "Critical",
 }
 
 DEPARTMENT_MAP = {
@@ -63,8 +56,14 @@ DEPARTMENT_MAP = {
 }
 
 CONFIDENCE_THRESHOLD = 0.60
+GEMINI_TEMPERATURE = 0.0
 
-GEMINI_PROMPT = """Analyze this image. Return ONLY this JSON, no markdown, no explanation:
+def get_default_prompt():
+    return sorted(PROMPTS.keys())[-1] if PROMPTS else "v1"
+
+PROMPTS = {}
+
+PROMPTS["v1"] = """Analyze this image. Return ONLY this JSON, no markdown, no explanation:
 {"description":"<max 15 words>","is_outdoor":<bool>,"is_real_photo":<bool>,"is_nsfw":<bool>}
 
 Description format (STRICT): [problem noun] + [verb/state] + [location]
@@ -82,159 +81,194 @@ Examples:
   broken streetlight leaning over pedestrian crossing near school
   stray dogs gathered near school gate entrance"""
 
+PROMPTS["v2"] = """You are an urban infrastructure inspector. Analyze this image for
+MUNICIPAL environmental/infrastructure problems visible in the SURROUNDINGS.
+
+SCOPE: road damage, sidewalk damage, waste accumulation, air/water pollution AT SCALE,
+damaged greenery, broken lighting/signs, sewage overflow, infrastructure decay,
+vandalism on public property, stray animals, natural disaster damage.
+
+OUT OF SCOPE: personal activities, individual people, handheld objects,
+indoor scenes, food, vehicles in normal use, artistic/abstract content.
+
+Return ONLY this JSON, no markdown, no explanation:
+{"description":"<max 15 words>","is_outdoor":<bool>,"is_real_photo":<bool>,"is_nsfw":<bool>,"is_person_focused":<bool>,"has_environmental_issue":<bool>}
+
+FIELD RULES:
+- is_real_photo: true ONLY if this is a genuine photograph taken with a real camera. Set false for AI-generated images, drawings, illustrations, cartoons, CGI/3D renders, or screenshots of media content.
+- is_outdoor: true if the scene is outdoors or in a public open space
+- is_nsfw: true if the image contains explicit/inappropriate content
+- is_person_focused: true if main subject is a person rather than the surroundings
+- has_environmental_issue: true ONLY if a real municipal-scale problem exists in the scene
+- description: describe the environmental problem using [problem] + [state] + [location]
+- If no municipal problem exists: "clean area no environmental damage visible"
+
+Format examples (structure only):
+  pothole cracking asphalt lane near busy intersection
+  overflowing garbage bins scattered along residential sidewalk
+  broken streetlight leaning over pedestrian crossing"""
+
+# ----------------------------------------------------------
+# Filter prompt: sadece boolean alanlar, aciklama yok
+# Pipeline'da ilk adimda kullanilir
+# ----------------------------------------------------------
+FILTER_PROMPT = """Analyze this image for safety filtering. Return ONLY this JSON, no markdown, no explanation:
+{"is_outdoor":<bool>,"is_real_photo":<bool>,"is_nsfw":<bool>,"is_person_focused":<bool>,"has_environmental_issue":<bool>}
+
+FIELD RULES:
+- is_real_photo: true ONLY if genuine photograph taken with a real camera. false for AI-generated, drawings, cartoons, CGI, screenshots.
+- is_outdoor: true if scene is outdoors or in a public open space
+- is_nsfw: true if explicit/inappropriate content
+- is_person_focused: true if main subject is a person (selfie, portrait, personal activity) rather than the surroundings
+- has_environmental_issue: true ONLY if a real municipal-scale infrastructure or environmental problem is visible in the surroundings"""
+
+# Description-only prompts (pipeline 2. adiminda kullanilir, filter gecildikten sonra)
+DESC_PROMPTS = {}
+
+DESC_PROMPTS["v1"] = """Describe the environmental/infrastructure problem visible in this image.
+Return ONLY this JSON, no markdown, no explanation:
+{"description":"<max 15 words>"}
+
+Description format (STRICT): [problem noun] + [verb/state] + [location]
+- Start with visible problem object: pothole/manhole/garbage/smoke/graffiti/tree/streetlight/sign/water/animal/crack/debris
+- Then its visible state: cracking/blocking/overflowing/covering/leaning/missing/spreading/flooding
+- Then location: near school/on highway/at intersection/along sidewalk/in park/on road
+- No articles (a/an/the), English only, max 15 words
+
+Examples:
+  pothole cracking asphalt lane near busy intersection
+  overflowing garbage bins scattered along residential sidewalk
+  broken streetlight leaning over pedestrian crossing near school"""
+
+DESC_PROMPTS["v2"] = """You are an urban infrastructure inspector. Describe ONLY the municipal/infrastructure problem visible in the surroundings.
+Return ONLY this JSON, no markdown, no explanation:
+{"description":"<max 15 words>"}
+
+SCOPE: road damage, sidewalk damage, waste, pollution, greenery, lighting, signs, sewage, infrastructure, vandalism, animals, natural disaster.
+Description: [problem] + [state] + [location], English only, max 15 words."""
+
 
 # ===========================================================
-# 1. GEMINI -- fotografi analiz et
+# MODEL YUKLEME
 # ===========================================================
-client = genai.Client(api_key=API_KEY)
+print("DistilBERT tokenizer yukleniyor...")
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
-def analyze_image(image_path: str) -> dict:
-    path = Path(image_path)
-    mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
-            "webp": "image/webp"}.get(path.suffix.lstrip(".").lower(), "image/jpeg")
-    data = path.read_bytes()
+print(f"ONNX model yukleniyor: {ONNX_PATH}")
+if not Path(ONNX_PATH).exists():
+    raise FileNotFoundError(f"{ONNX_PATH} bulunamadi. v0.9.0 klasorune kopyala.")
 
+sess = ort.InferenceSession(ONNX_PATH, providers=["CPUExecutionProvider"])
+print("Model hazir (CPU / ONNX Runtime)\n")
+
+gemini_client = genai.Client(api_key=API_KEY)
+
+
+# ===========================================================
+# GEMINI
+# ===========================================================
+def _gemini_call(img_bytes: bytes, mime: str, prompt: str, temp: float) -> dict:
+    """Tek bir Gemini JSON call'u. 3 deneme, rate-limit bekleme."""
     for attempt in range(3):
         try:
-            res = client.models.generate_content(
+            res = gemini_client.models.generate_content(
                 model="gemini-3.1-flash-lite-preview",
                 contents=[
-                    types.Part.from_bytes(data=data, mime_type=mime),
-                    GEMINI_PROMPT,
+                    types.Part.from_bytes(data=img_bytes, mime_type=mime),
+                    prompt,
                 ],
+                config=types.GenerateContentConfig(temperature=temp),
             )
             text = res.text.strip()
             if text.startswith("```"):
-                text = text.split("\n", 1)[1]
-                text = text.rsplit("```", 1)[0]
+                text = text.split("\n", 1)[1].rsplit("```", 1)[0]
             return json.loads(text)
-
         except (json.JSONDecodeError, KeyError) as e:
             raw = res.text.strip()
-            # JSON icinde ara
-            import re
             match = re.search(r'\{.*?\}', raw, re.DOTALL)
             if match:
                 try:
                     return json.loads(match.group())
-                except:
+                except Exception:
                     pass
-            # Düz metin formatini parse et (description + key: value satirlari)
-            lines = raw.split('\n')
-            desc = lines[0].strip() if lines else ""
-            result = {"description": desc, "is_outdoor": True, "is_real_photo": True, "is_nsfw": False}
-            for line in lines[1:]:
-                line = line.strip().lower()
-                if "is_outdoor" in line:
-                    result["is_outdoor"] = "true" in line
-                elif "is_real_photo" in line:
-                    result["is_real_photo"] = "true" in line
-                elif "is_nsfw" in line:
-                    result["is_nsfw"] = "true" in line
-            if result["description"]:
-                return result
-            return {"error": f"Gemini parse hatasi: {e}"}
-        except (ClientError, ServerError) as e:
-            code = str(e)
-            if "429" in code:
+            return {"error": f"Gemini parse hatasi: {e}", "raw": raw[:200]}
+        except ClientError as e:
+            if "429" in str(e):
                 wait = 30 * (attempt + 1)
-                print(f"  Gemini kota, {wait}s bekleniyor...")
-                time.sleep(wait)
-            elif "503" in code or "UNAVAILABLE" in code:
-                wait = 10 * (attempt + 1)
-                print(f"  Gemini mesgul, {wait}s bekleniyor... (deneme {attempt+1}/3)")
                 time.sleep(wait)
             else:
-                return {"error": f"Gemini hatasi: {e}"}
+                return {"error": f"Gemini API hatasi: {e}"}
+    return {"error": "Kota asildi, sonra tekrar dene"}
 
-    return {"error": "Kota asildi, daha sonra dene"}
+
+def analyze_image_bytes(img_bytes: bytes, mime: str, temperature: float = None, prompt_version: str = None) -> dict:
+    """Gemini Solo icin tek call: filter + description birlikte."""
+    temp = temperature if temperature is not None else GEMINI_TEMPERATURE
+    prompt = PROMPTS.get(prompt_version or get_default_prompt(), PROMPTS[get_default_prompt()])
+    return _gemini_call(img_bytes, mime, prompt, temp)
 
 
-# ===========================================================
-# 2. TROLL FILTRESI
-# ===========================================================
+def get_filter_result(img_bytes: bytes, mime: str, temperature: float = None) -> dict:
+    """Pipeline 1. adim: sadece boolean filter alanlari uret, aciklama yok."""
+    temp = temperature if temperature is not None else GEMINI_TEMPERATURE
+    return _gemini_call(img_bytes, mime, FILTER_PROMPT, temp)
+
+
+def get_description(img_bytes: bytes, mime: str, temperature: float = None, prompt_version: str = None) -> dict:
+    """Pipeline 2. adim: filter gecildikten sonra aciklama uret."""
+    temp = temperature if temperature is not None else GEMINI_TEMPERATURE
+    prompt = DESC_PROMPTS.get(prompt_version or get_default_prompt(), DESC_PROMPTS[get_default_prompt()])
+    return _gemini_call(img_bytes, mime, prompt, temp)
+
+
 def check_troll(gemini_result: dict) -> dict:
     if "error" in gemini_result:
         return {"passed": False, "reason": gemini_result["error"]}
-
     if gemini_result.get("is_nsfw", False):
-        return {"passed": False, "reason": "NSFW: Uygunsuz icerik tespit edildi"}
+        return {"passed": False, "reason": "NSFW: Uygunsuz icerik"}
     if not gemini_result.get("is_real_photo", True):
-        return {"passed": False, "reason": "TROLL: Gercek fotograf degil (screenshot/meme/cizim)"}
+        return {"passed": False, "reason": "TROLL: Gercek fotograf degil"}
     if not gemini_result.get("is_outdoor", True):
-        return {"passed": False, "reason": "TROLL: Dis mekan fotografi degil"}
-
+        return {"passed": False, "reason": "TROLL: Dis mekan degil"}
+    if gemini_result.get("is_person_focused", False):
+        return {"passed": False, "reason": "TROLL: Kisi odakli fotograf, cevre sorunu degil"}
+    if gemini_result.get("has_environmental_issue") is False:
+        return {"passed": False, "reason": "TROLL: Cevresel/altyapi sorunu tespit edilmedi"}
     return {"passed": True}
 
 
 # ===========================================================
-# 3. MODEL -- DistilBERT (v9)
+# DISTILBERT (ONNX)
 # ===========================================================
-class EnvClassifier(nn.Module):
-    def __init__(self, model_name="distilbert-base-uncased", num_classes=14, num_priorities=6):
-        super().__init__()
-        self.backbone = AutoModel.from_pretrained(model_name)
-        hidden = self.backbone.config.hidden_size  # 768
-
-        self.class_head = nn.Sequential(
-            nn.Dropout(0.3), nn.Linear(hidden, 384), nn.GELU(),
-            nn.Dropout(0.15), nn.Linear(384, num_classes),
-        )
-        self.priority_head = nn.Sequential(
-            nn.Dropout(0.3), nn.Linear(hidden, 192), nn.GELU(),
-            nn.Dropout(0.1), nn.Linear(192, num_priorities),
-        )
-
-    def forward(self, input_ids, attention_mask):
-        out       = self.backbone(input_ids=input_ids, attention_mask=attention_mask)
-        cls_token = out.last_hidden_state[:, 0]
-        return self.class_head(cls_token), self.priority_head(cls_token)
-
-
-def load_model():
-    if not Path(MODEL_PATH).exists():
-        print(f"Model bulunamadi: {MODEL_PATH}")
-        sys.exit(1)
-
-    device    = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model     = EnvClassifier(BACKBONE, num_classes=NUM_CLASSES, num_priorities=NUM_PRIORITIES).to(device)
-    tokenizer = AutoTokenizer.from_pretrained(BACKBONE)
-
-    checkpoint = torch.load(MODEL_PATH, map_location=device, weights_only=False)
-    state = checkpoint["model_state"]
-
-    print(f"  Checkpoint val_class_acc: {checkpoint.get('val_class_acc', '?')}")
-    print(f"  Checkpoint val_priority_acc: {checkpoint.get('val_priority_acc', '?')}")
-
-    model.load_state_dict(state, strict=True)
-    model.eval()
-
-    return model, tokenizer, device
-
-
-def classify(text, model, tokenizer, device):
+def classify(text: str) -> dict:
     enc  = tokenizer(text, truncation=True, padding="max_length",
-                     max_length=64, return_tensors="pt")
-    ids  = enc["input_ids"].to(device)
-    mask = enc["attention_mask"].to(device)
+                     max_length=MAX_LEN, return_tensors="np")
+    ids  = enc["input_ids"].astype(np.int64)
+    mask = enc["attention_mask"].astype(np.int64)
 
-    with torch.no_grad():
-        cls_out, pri_out = model(ids, mask)
+    cls_logits, pri_logits = sess.run(
+        ["class_logits", "priority_logits"],
+        {"input_ids": ids, "attention_mask": mask},
+    )
 
-    cls_probs  = torch.softmax(cls_out, dim=1)[0]
-    pri_probs  = torch.softmax(pri_out, dim=1)[0]
-    cls_idx    = cls_probs.argmax().item()
-    pri_idx    = pri_probs.argmax().item()
-    confidence = cls_probs[cls_idx].item()
+    def softmax(x):
+        e = np.exp(x - x.max()); return e / e.sum()
+
+    cls_probs = softmax(cls_logits[0])
+    pri_probs = softmax(pri_logits[0])
+    cls_idx   = int(cls_probs.argmax())
+    pri_idx   = int(pri_probs.argmax())
+    confidence = float(cls_probs[cls_idx])
 
     all_scores = sorted(
-        [(CLASSES[i], cls_probs[i].item()) for i in range(len(CLASSES))],
-        key=lambda x: x[1], reverse=True
+        [{"class": CLASSES[i], "score": round(float(cls_probs[i]), 4)}
+         for i in range(len(CLASSES))],
+        key=lambda x: x["score"], reverse=True,
     )
 
     return {
         "category":       CLASSES[cls_idx],
-        "confidence":     confidence,
+        "confidence":     round(confidence, 4),
         "priority":       pri_idx,
         "priority_label": PRIORITY_LABELS.get(pri_idx, "?"),
         "department":     DEPARTMENT_MAP.get(CLASSES[cls_idx], "?"),
@@ -243,117 +277,3 @@ def classify(text, model, tokenizer, device):
         "needs_review":   confidence < CONFIDENCE_THRESHOLD,
         "all_scores":     all_scores,
     }
-
-
-# ===========================================================
-# 4. FULL PIPELINE
-# ===========================================================
-def analyze(image_path, model, tokenizer, device):
-    path = Path(image_path)
-    if not path.exists():
-        return {"error": f"Dosya bulunamadi: {image_path}"}
-
-    print(f"  Gemini analiz ediyor...")
-    gemini_result = analyze_image(str(path))
-
-    if "error" in gemini_result:
-        return {"error": gemini_result["error"]}
-
-    troll_check = check_troll(gemini_result)
-    if not troll_check["passed"]:
-        return {
-            "image":         path.name,
-            "gemini":        gemini_result,
-            "rejected":      True,
-            "reject_reason": troll_check["reason"],
-        }
-
-    description = gemini_result.get("description", "")
-    if not description:
-        return {"error": "Gemini aciklama dondürmedi"}
-
-    result = classify(description, model, tokenizer, device)
-    print(f"  -> {result['category']} ({result['confidence']:.0%}) | '{description}'")
-    result["image"]       = path.name
-    result["description"] = description
-    result["rejected"]    = False
-    return result
-
-
-def print_result(result):
-    if "error" in result:
-        print(f"  HATA: {result['error']}\n")
-        return
-
-    print(f"  Fotograf  : {result['image']}")
-
-    if result.get("rejected"):
-        desc = result.get("gemini", {}).get("description", "-")
-        print(f"  Gemini    : {desc}")
-        print(f"  {result['reject_reason']}")
-        print()
-        return
-
-    print(f"  Gemini    : {result['description']}")
-
-    if result["is_troll"]:
-        print(f"  TROLL     : Model de alakasiz olarak siniflandirdi")
-    elif result["is_normal"]:
-        print(f"  NORMAL    : Sorun tespit edilmedi")
-    else:
-        print(f"  Kategori  : {result['category']}")
-        print(f"  Oncelik   : {result['priority']}/5 {result['priority_label']}")
-        print(f"  Birim     : {result['department']}")
-
-    print(f"  Guven     : {result['confidence']:.0%}")
-
-    if result.get("needs_review"):
-        print(f"  DIKKAT    : Dusuk guven -- insan incelemesi onerilir")
-
-    print(f"  --- Tum Kategoriler ---")
-    for cls, prob in result.get("all_scores", []):
-        bar = "#" * int(prob * 30)
-        print(f"  {cls:<20} {prob:5.1%}  {bar}")
-
-    print()
-
-
-# ===========================================================
-# 5. CALISTIR
-# ===========================================================
-if __name__ == "__main__":
-    print("Environmental Issue Detection v8 -- DeBERTa-v3-small")
-    print("-" * 55)
-
-    model, tokenizer, device = load_model()
-    print(f"Model hazir ({device})\n")
-
-    if len(sys.argv) > 1:
-        target = Path(sys.argv[1])
-
-        if target.is_dir():
-            exts   = [".jpg", ".jpeg", ".png", ".webp"]
-            images = [p for p in target.iterdir() if p.suffix.lower() in exts]
-            print(f"{len(images)} fotograf bulundu: {target}\n")
-            for i, img in enumerate(images):
-                print(f"[{i+1}/{len(images)}]")
-                result = analyze(str(img), model, tokenizer, device)
-                print_result(result)
-                time.sleep(1)
-        else:
-            result = analyze(str(target), model, tokenizer, device)
-            print_result(result)
-        sys.exit(0)
-
-    print("Fotograf yolu yaz + Enter (cikis: q)\n")
-    while True:
-        try:
-            path = input("> ").strip().strip('"')
-            if not path or path.lower() == "q":
-                print("Cikis")
-                break
-            result = analyze(path, model, tokenizer, device)
-            print_result(result)
-        except KeyboardInterrupt:
-            print("\nCikis")
-            break

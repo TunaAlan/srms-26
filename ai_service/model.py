@@ -4,7 +4,7 @@ import numpy as np
 from transformers import AutoTokenizer
 from pathlib import Path
 
-ONNX_PATH = os.getenv("ONNX_PATH", str(Path(__file__).parent.resolve() / "text_classifier_v9.onnx"))
+ONNX_PATH = os.getenv("ONNX_PATH", str(Path(__file__).parent.resolve() / "text_classifier_v0.9.1.onnx"))
 
 CLASSES = [
     "road_damage", "sidewalk_damage", "waste", "pollution",

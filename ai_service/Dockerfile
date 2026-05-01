@@ -7,24 +7,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# CPU-only PyTorch (GPU yok, image cok daha kucuk olur ~300MB vs ~2GB)
-RUN pip install --no-cache-dir \
-    torch==2.5.1+cpu \
-    --index-url https://download.pytorch.org/whl/cpu
-
-# Diger bagimliliklari yukle
+# Python bagimliliklari (ONNX runtime, transformers tokenizer, fastapi, vs.)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# DistilBERT backbone'unu build sirasinda indir
+# DistilBERT tokenizer'ini build sirasinda indir (ONNX weights modeli icerdigi icin full model gereksiz)
 RUN python -c "\
-from transformers import AutoModel, AutoTokenizer; \
-AutoModel.from_pretrained('distilbert-base-uncased'); \
+from transformers import AutoTokenizer; \
 AutoTokenizer.from_pretrained('distilbert-base-uncased'); \
-print('DistilBERT indirildi.')"
+print('DistilBERT tokenizer indirildi.')"
 
 # Uygulama dosyalari
-COPY app.py main.py text_classifier_v9.pth ./
+COPY app.py main.py text_classifier_v0.9.1.onnx ./
 
 EXPOSE 8000
 
