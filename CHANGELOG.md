@@ -9,6 +9,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.6.0] - 2026-05-01
+
+### AI Service
+
+#### Changed
+- Local files restored to match server-deployed ONNX v0.9.1 pipeline — local copy had drifted to a PyTorch-based implementation that crashed at startup with `ModuleNotFoundError: No module named 'torch'`.
+- `model.py` ONNX path corrected from `text_classifier_v9.onnx` to `text_classifier_v0.9.1.onnx`.
+- `requirements.txt` restored: `onnxruntime>=1.20.0`, `numpy>=1.24.0`; PyTorch dependency removed.
+- `ClassifyRequest` extended with `report_id: str = "unknown"` for traceability in logs.
+
+---
+
+### Service Core (Backend)
+
+#### Changed
+- `status` enum redesigned: `pending → in_review → in_progress → resolved / rejected`. The `in_review` value moved from `reviewStatus` to `status` — it is a lifecycle state, not a review decision.
+- `reviewStatus` enum narrowed to `approved | corrected | rejected` (removed `in_review` — it was never a valid reviewer decision).
+- AI callback: on successful analysis, report transitions to `in_review` (previously `in_progress`) — the report now waits for human review before becoming actionable.
+- `changeStatus` allowed transitions extended: `rejected → in_review` (admin re-open) and `in_progress → in_review` (admin send back to review).
+- `rejectReason` field type corrected to `CreationOptional<string | null>` — was `CreationOptional<string>`, causing a TypeScript compile error when assigning `null`.
+
+#### Added
+- `reviewedBy` UUID field on `Report` model — stores the ID of the staff member who made the review decision. Set server-side from `req.user.id` on every review action; not writable by the client.
+- `Report.belongsTo(User, { foreignKey: 'reviewedBy', as: 'reviewer' })` association — `GET /reports` returns `reviewedByName` via JOIN without a separate lookup.
+- `AiResult` interface extended with `rejected: boolean` and `rejectReason: string | null` — AI service signals troll/NSFW/indoor detection via this flag.
+- Troll auto-reject: when `ai.rejected === true`, the report is set to `status: 'rejected'`, `reviewStatus: 'rejected'` with the AI-provided `rejectReason` and never enters the review queue.
+- `deleteReport` now removes the associated image file from disk via `fs/promises unlink` — previously, only the DB row was deleted and the file was left behind.
+- `userService`, `userController`, `userRoutes` added for personnel management (`GET /users`, `POST /users`, `PATCH /users/:id/active`, `DELETE /users/:id`), all restricted to `admin` role.
+
+---
+
+### Client Admin
+
+#### Changed
+- All `r.reviewStatus === 'in_review'` comparisons replaced with `r.status === 'in_review'` across `App.tsx`, `Dashboard.tsx`, and `ReviewQueue.tsx` — fixes the bug where the review queue appeared empty despite reports awaiting review.
+- `ReviewQueue` filter updated to `r.status === 'in_review'`.
+- `handleChangeStatus` in `App.tsx` now accepts `'in_review' | 'in_progress' | 'resolved'` (removed `'in_review'` from reviewStatus, added to status).
+- `STATUS_TRANSITIONS` in `DetailModal` updated: `rejected → in_review` and `in_progress → [resolved, in_review]` added.
+- Map: reports with `status === 'in_review'` open `InspectionModal`; all other statuses open `DetailModal`.
+- `ReviewQueue` correct/reject handlers now set `inspectTarget` before opening the target modal — previously `inspectTarget` was null when the modal opened from the queue, causing it to render with no data.
+- `reviewStatus` enum in `types.ts` updated to `'approved' | 'corrected' | 'rejected' | null`.
+- `getReviewStatusLabel` in `utils.ts`: `in_review` entry removed.
+- `mapReport` in `utils.ts`: `reviewedByName: r.reviewer?.name ?? null`.
+
+#### Added
+- `reviewedByName` shown in `DetailModal` below the review status badge — identifies which staff member made the review decision.
+- `.badge-in_review` CSS class (`background: #ede9fe; color: #7c3aed`).
+- `PersonnelPanel` component — admin-only staff management: list all users, create new staff accounts (email, name, password, role), toggle active status, delete.
+- `PhotoLightbox` component — full-screen image viewer on report photo click.
+
+#### Removed
+- `EmergencyReports` component removed — emergency role and forward workflow retired in favour of the unified status lifecycle.
+- `ForwardModal` component removed.
+
+---
+
+### Client Mobile
+
+#### Fixed
+- `ReportStatus` type removed from `ReportContext` — was defined as Turkish display strings (`"Beklemede"`, `"İşleme Alındı"`...) that never matched the English API values, causing all status comparisons to silently fail.
+- `Report` type now imported from `reportsApi.ts` instead of defined locally — eliminates the type mismatch that was preventing `ReportContext` from compiling.
+- Stat counters on the home screen corrected: pending KPI now counts `pending + in_review`, in-progress counts `in_progress`, resolved counts `resolved`. All were previously zero due to string mismatch.
+- Report polling continues while `status === 'pending' || status === 'in_review'` — was only polling for `pending`, so reports that transitioned to `in_review` appeared stuck.
+
+#### Added
+- `in_review` status support in `STATUS_MAP`, `Report` interface, and `mapReportFromApi`.
+- `rejectReason` field added to `Report` interface and `mapReportFromApi`.
+- `history.tsx`: `in_review` entry added to `STATUS_CONFIG` with label "İncelemede" and icon `search`.
+- `history.tsx`: rejection reason displayed in a red-bordered block beneath the status badge when present.
+
+---
+
+### Infrastructure
+
+#### Changed
+- `.gitignore`: `*.onnx` added to exclude ONNX model files from version control.
+
+---
+
 ## [0.5.0] - 2026-04-22
 
 ### Service Core (Backend)
