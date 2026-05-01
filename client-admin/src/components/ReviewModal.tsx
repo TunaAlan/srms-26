@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PhotoLightbox } from './PhotoLightbox';
 import type { Report } from '../types';
 import { CATEGORY_LABEL_MAP, getConfidenceLabel, getConfidenceColor } from '../utils';
 
@@ -29,11 +30,14 @@ const CATEGORY_TO_UNIT: Record<string, string> = {
 interface ReviewModalProps {
   report: Report;
   onClose: () => void;
-  onSave: (id: string, aiCategory: string, aiPriority: string, aiUnit: string) => void;
+  onBack?: () => void;
+  onSave: (id: string, aiCategory: string, aiPriority: string, aiUnit: string, note?: string) => void;
 }
 
-export const ReviewModal: React.FC<ReviewModalProps> = ({ report, onClose, onSave }) => {
-  const [category, setCategory] = useState(report.category);
+export const ReviewModal: React.FC<ReviewModalProps> = ({ report, onClose, onBack, onSave }) => {
+  const [category, setCategory] = useState(
+    report.category in CATEGORY_LABEL_MAP ? report.category : 'road_damage'
+  );
   const unit = CATEGORY_TO_UNIT[category] ?? '-';
   const [priority, setPriority] = useState(() => {
     const c = report.criticality;
@@ -43,9 +47,10 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ report, onClose, onSav
     return 'low';
   });
   const [showConfirm, setShowConfirm] = useState(false);
+  const [note, setNote] = useState('');
 
   const handleSave = () => {
-    onSave(report.id, category, priority, unit);
+    onSave(report.id, category, priority, unit, note || undefined);
   };
 
   return (
@@ -71,12 +76,19 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ report, onClose, onSav
                 lineHeight: 1.6,
                 maxWidth: '420px',
               }}>
-                Yaptığınız düzeltmeleri kaydetmek istediğinizden emin misiniz? Rapor, kaydedildikten sonra acil müdahale birimine yönlendirilecek.
+                Yaptığınız düzeltmeleri kaydetmek istediğinizden emin misiniz? Değişiklikler kaydedildikten sonra rapor güncellenecek.
               </div>
               <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <div>📂 Kategori: <strong>{CATEGORY_LABEL_MAP[category] || category}</strong></div>
                 <div>🏢 Birim: <strong>{unit}</strong></div>
               </div>
+              <textarea
+                placeholder="Not ekle (isteğe bağlı)..."
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={3}
+                style={{ width: '100%', maxWidth: '420px', fontSize: '12px', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: '8px', resize: 'none', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: 'var(--text)' }}
+              />
             </div>
             <div className="modal-footer">
               <button className="btn-cancel" onClick={() => setShowConfirm(false)}>← Geri Dön</button>
@@ -86,10 +98,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ report, onClose, onSav
         ) : (
           <>
             <div className="modal-body">
-              {report.image && (
-                <img src={report.image} className="modal-image" alt="rapor görseli"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              )}
+              {report.image && <PhotoLightbox src={report.image} />}
 
               {/* Kullanıcı bilgileri — sadece gösterim */}
               {(report.userDescription || report.userCategory) && (
@@ -152,7 +161,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ report, onClose, onSav
             </div>
 
             <div className="modal-footer">
-              <button className="btn-cancel" onClick={onClose}>İptal</button>
+              <button className="btn-cancel" onClick={onBack ?? onClose}>← Geri</button>
               <button className="btn-save" onClick={() => setShowConfirm(true)}>Düzeltmeyi Kaydet</button>
             </div>
           </>

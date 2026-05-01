@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Report } from '../types';
+import { PhotoLightbox } from './PhotoLightbox';
 import {
   getCriticalityLabel,
   getConfidenceLabel,
@@ -24,7 +25,7 @@ const CONFIRM_CONFIG = {
   approve: {
     icon: '✅',
     title: 'Raporu Onayla',
-    message: 'Bu raporu onaylamak istediğinizden emin misiniz? Rapor acil müdahale birimine yönlendirilecek.',
+    message: 'Bu raporu onaylamak istediğinizden emin misiniz?',
     confirmLabel: '✓ Onayla',
     confirmClass: 'btn btn-approve',
   },
@@ -108,14 +109,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
           <>
             <div className="modal-body">
               {/* Fotoğraf */}
-              {report.image && (
-                <img
-                  src={report.image}
-                  className="modal-image"
-                  alt="rapor görseli"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              )}
+              {report.image && <PhotoLightbox src={report.image} />}
 
               {/* Üst bilgi satırı */}
               <div className="modal-info-grid">
@@ -133,10 +127,6 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                   <div className="modal-info-value" style={{ fontWeight: 700, color: getConfidenceColor(report.aiConfidence) }}>
                     {getConfidenceLabel(report.aiConfidence)}
                   </div>
-                </div>
-                <div className="modal-info-item">
-                  <div className="modal-info-label">Zaman</div>
-                  <div className="modal-info-value">{getTimeAgo(report.timestamp)}</div>
                 </div>
                 <div
                   className="modal-info-item"
@@ -167,6 +157,10 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                       : <span>📍 {report.address || '—'}</span>
                     }
                   </div>
+                </div>
+                <div className="modal-info-item">
+                  <div className="modal-info-label">Zaman</div>
+                  <div className="modal-info-value">{getTimeAgo(report.timestamp)}</div>
                 </div>
                 <div className="modal-info-item" style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                   <div className="modal-info-label">Sorumlu Birim</div>
@@ -205,11 +199,22 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                   </p>
                 </div>
               </div>
+              {report.reviewedByName && (
+                <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-tertiary)', textAlign: 'right' }}>
+                  👤 Son inceleme: <strong>{report.reviewedByName}</strong>
+                </div>
+              )}
+              {report.resolution && (
+                <div style={{ marginTop: '12px', padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '3px solid #f59e0b', borderRadius: '8px' }}>
+                  <div className="modal-section-title" style={{ color: '#92400e', marginBottom: '4px' }}>PERSONEL NOTU</div>
+                  <p style={{ fontSize: '13px', color: '#92400e', lineHeight: 1.5, margin: 0 }}>{report.resolution}</p>
+                </div>
+              )}
             </div>
 
             <div className="modal-footer">
               <button className="btn-cancel" onClick={onClose}>Kapat</button>
-              {role === 'review' && (
+              {(role === 'review_personnel' || role === 'admin') && (
                 <>
                   <button className="btn btn-reject" style={{ padding: '8px 16px' }} onClick={handleReject}>✕ Reddet</button>
                   <button className="btn btn-correct" style={{ padding: '8px 16px' }} onClick={handleCorrect}>✏️ Düzelt</button>

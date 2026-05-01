@@ -30,12 +30,11 @@ class Report extends Model<
   declare aiDescription: CreationOptional<string>;
 
   // Workflow
-  declare status: CreationOptional<'pending' | 'in_progress' | 'resolved' | 'rejected'>;
-  declare reviewStatus: CreationOptional<'pending' | 'approved' | 'corrected' | 'rejected'>;
-  declare rejectReason: CreationOptional<string>;
-  declare forwardNote: CreationOptional<string>;
-  declare forwardStatus: CreationOptional<'forwarded' | 'completed'>;
+  declare status: CreationOptional<'pending' | 'in_review' | 'in_progress' | 'resolved' | 'rejected'>;
+  declare reviewStatus: CreationOptional<'approved' | 'corrected' | 'rejected'>;
+  declare rejectReason: CreationOptional<string | null>;
   declare staffNote: CreationOptional<string>;
+  declare reviewedBy: CreationOptional<string>;
 
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
@@ -97,27 +96,23 @@ Report.init(
       allowNull: true,
     },
     status: {
-      type: DataTypes.ENUM('pending', 'in_progress', 'resolved', 'rejected'),
+      type: DataTypes.ENUM('pending', 'in_review', 'in_progress', 'resolved', 'rejected'),
       defaultValue: 'pending',
     },
     reviewStatus: {
-      type: DataTypes.ENUM('pending', 'approved', 'corrected', 'rejected'),
+      type: DataTypes.ENUM('approved', 'corrected', 'rejected'),
       allowNull: true,
     },
     rejectReason: {
       type: DataTypes.TEXT,
       allowNull: true,
     },
-    forwardNote: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    forwardStatus: {
-      type: DataTypes.ENUM('forwarded', 'completed'),
-      allowNull: true,
-    },
     staffNote: {
       type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    reviewedBy: {
+      type: DataTypes.UUID,
       allowNull: true,
     },
     createdAt: DataTypes.DATE,

@@ -23,6 +23,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, loading, erro
           <div className="login-logo-badge">ABB</div>
           <h1>Yönetim Paneli</h1>
           <p>Altyapı Bildirim Sistemi</p>
+          <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400, letterSpacing: '0.4px' }}>
+            v{__APP_VERSION__}
+          </span>
         </div>
 
         {error && <div className="login-error" style={{ display: 'block' }}>{error}</div>}

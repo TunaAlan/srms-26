@@ -4,7 +4,6 @@ import { getRoleLabel } from '../utils';
 
 interface TopbarProps {
   reviewCount: number;
-  emergencyCount: number;
   role: UserRole;
   userName: string;
   onLogout: () => void;
@@ -12,7 +11,6 @@ interface TopbarProps {
 
 export const Topbar: React.FC<TopbarProps> = ({
   reviewCount,
-  emergencyCount,
   role,
   userName,
   onLogout,
@@ -38,19 +36,16 @@ export const Topbar: React.FC<TopbarProps> = ({
         <div className="topbar-logo">ABB</div>
         <div className="topbar-divider"></div>
         <div className="topbar-title">Altyapı Yönetim Paneli</div>
+        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginLeft: '8px', fontWeight: 500 }}>
+          v{__APP_VERSION__}
+        </span>
       </div>
 
       <div className="topbar-right">
-        {(role === 'super_admin' || role === 'review') && reviewCount > 0 && (
+        {reviewCount > 0 && (
           <div className="topbar-indicator topbar-indicator-review">
             <span className="topbar-indicator-dot"></span>
             {reviewCount} İnceleme
-          </div>
-        )}
-        {(role === 'super_admin' || role === 'emergency') && emergencyCount > 0 && (
-          <div className="topbar-indicator topbar-indicator-emergency">
-            <span className="topbar-indicator-dot"></span>
-            {emergencyCount} Acil
           </div>
         )}
 

@@ -37,18 +37,18 @@ router.post('/', authenticate, upload.single('image'), reportController.createRe
 router.get('/my', authenticate, reportController.getMyReports);
 
 // Admin / department: list all reports (with optional filters)
-router.get('/', authenticate, authorize('super_admin', 'review', 'emergency'), reportController.getAllReports);
+router.get('/', authenticate, authorize('admin', 'review_personnel'), reportController.getAllReports);
 
 // Any authenticated user: single report detail (controller enforces ownership for regular users)
 router.get('/:id', authenticate, reportController.getReportById);
 
 // Review role: approve / correct / reject
-router.patch('/:id/review', authenticate, authorize('review'), reportController.reviewReport);
+router.patch('/:id/review', authenticate, authorize('admin', 'review_personnel'), reportController.reviewReport);
 
-// Emergency role: forward to unit
-router.patch('/:id/forward', authenticate, authorize('emergency'), reportController.forwardReport);
+// Admin: manually change report status
+router.patch('/:id/status', authenticate, authorize('admin'), reportController.changeStatus);
 
-// Super admin: delete a report
-router.delete('/:id', authenticate, authorize('super_admin'), reportController.deleteReport);
+// Admin: delete a report
+router.delete('/:id', authenticate, authorize('admin'), reportController.deleteReport);
 
 export default router;

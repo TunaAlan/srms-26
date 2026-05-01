@@ -53,6 +53,7 @@ Thumbs.db
 
 # Python / AI Model
 *.pth
+*.onnx
 __pycache__/
 .venv/
 *.pyc

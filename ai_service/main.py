@@ -1,52 +1,45 @@
 """
-Environmental Issue Classifier v8 -- HTTP API
-POST /analyze  -> fotograf yukle, JSON sonuc al
-GET  /health   -> servis durumu
+Environmental Issue Classifier v0.9.1 -- HTTP API
+POST /classify  -> image_path al, JSON sonuc don
+GET  /health    -> servis durumu
 """
 
-import io
-import tempfile
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 import app as classifier
 
 
-_model = None
-_tokenizer = None
-_device = None
+MIME_MAP = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".png": "image/png",  ".webp": "image/webp",
+}
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    global _model, _tokenizer, _device
-    print("Model yukleniyor...")
-    _model, _tokenizer, _device = classifier.load_model()
-    print(f"Model hazir ({_device})")
+    # model app.py import sirasinda yuklenir
     yield
-    print("Servis kapaniyor.")
 
 
 api = FastAPI(
     title="Environmental Issue Classifier",
-    version="8.0",
+    version="9.0",
     lifespan=lifespan,
 )
-
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
 
 @api.get("/health")
 def health():
-    return {"status": "ok", "model_loaded": _model is not None}
+    return {"status": "ok", "model_loaded": classifier.sess is not None}
 
 
 class ClassifyRequest(BaseModel):
     image_path: str
+    report_id: str = "unknown"
 
 
 @api.post("/classify")
@@ -55,54 +48,38 @@ def classify_report(req: ClassifyRequest):
     if not path.exists():
         raise HTTPException(status_code=400, detail=f"Dosya bulunamadi: {req.image_path}")
 
-    result = classifier.analyze(str(path), _model, _tokenizer, _device)
+    mime = MIME_MAP.get(path.suffix.lower(), "image/jpeg")
+    img_bytes = path.read_bytes()
 
-    if "error" in result:
-        raise HTTPException(status_code=500, detail=result["error"])
+    gemini_result = classifier.analyze_image_bytes(img_bytes, mime)
+    if "error" in gemini_result:
+        raise HTTPException(status_code=500, detail=gemini_result["error"])
 
-    if result.get("rejected"):
+    troll = classifier.check_troll(gemini_result)
+    if not troll["passed"]:
         return {
             "success": True,
             "rejected": True,
-            "reject_reason": result.get("reject_reason", ""),
+            "reject_reason": troll["reason"],
             "category": "", "priority": 0, "priority_label": "",
             "confidence": 0.0, "department": "", "description": "", "needs_review": False,
         }
 
+    description = (gemini_result.get("description") or "").strip()
+    if not description:
+        raise HTTPException(status_code=500, detail="Gemini aciklama dondürmedi")
+
+    result = classifier.classify(description)
+
     return {
-        "success":       True,
-        "rejected":      False,
-        "reject_reason": "",
-        "category":      result.get("category", ""),
-        "priority":      result.get("priority", 0),
+        "success":        True,
+        "rejected":       False,
+        "reject_reason":  "",
+        "category":       result.get("category", ""),
+        "priority":       result.get("priority", 0),
         "priority_label": result.get("priority_label", ""),
-        "confidence":    result.get("confidence", 0.0),
-        "department":    result.get("department", ""),
-        "description":   result.get("description", ""),
-        "needs_review":  result.get("needs_review", False),
+        "confidence":     result.get("confidence", 0.0),
+        "department":     result.get("department", ""),
+        "description":    description,
+        "needs_review":   result.get("needs_review", False),
     }
-
-
-@api.post("/analyze")
-async def analyze(image: UploadFile = File(...)):
-    suffix = Path(image.filename or "upload.jpg").suffix.lower()
-    if suffix not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"Desteklenmeyen dosya turu: {suffix}")
-
-    data = await image.read()
-    if len(data) > 20 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Dosya 20 MB sinirini asti")
-
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(data)
-        tmp_path = tmp.name
-
-    try:
-        result = classifier.analyze(tmp_path, _model, _tokenizer, _device)
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
-
-    if "error" in result:
-        raise HTTPException(status_code=500, detail=result["error"])
-
-    return JSONResponse(content=result)

@@ -1,23 +1,8 @@
-import { createContext, ReactNode, useContext, useState, useEffect } from "react";
-import { getReportsApiClient } from "@/services/reportsApi";
+import { createContext, ReactNode, useContext, useState, useEffect, useRef } from "react";
+import { getReportsApiClient, type Report } from "@/services/reportsApi";
 import { useAuth } from "@/context/AuthContext";
 
-export type CriticalityLevel = "kritik" | "yuksek" | "orta" | "dusuk";
-export type ReportStatus = "beklemede" | "inceleniyor" | "cozuldu" | "reddedildi";
-
-export interface Report {
-  id: string;
-  image: string;
-  description: string;
-  category: string;
-  categoryLabel: string;
-  latitude: number;
-  longitude: number;
-  address: string;
-  timestamp: number;
-  status: ReportStatus;
-  criticality: CriticalityLevel;
-}
+export type { Report };
 
 interface ReportContextType {
   reports: Report[];
@@ -54,13 +39,30 @@ export function ReportProvider({ children }: { children: ReactNode }) {
     }
   }, [isLoggedIn]);
 
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const hasPending = reports.some((r) => r.status === 'pending' || r.status === 'in_review');
+    if (hasPending) {
+      if (!pollRef.current) {
+        pollRef.current = setInterval(fetchReports, 8000);
+      }
+    } else {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    }
+    return () => {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    };
+  }, [reports, isLoggedIn]);
+
   const fetchReports = async () => {
     try {
       setIsLoading(true);
       const data = await reportsApi.getReports();
-      if (data && data.length > 0) {
-        setReports(data);
-      }
+      setReports(data ?? []);
     } catch (err: any) {
       console.warn("Failed to fetch reports from API, using sample data", err);
     } finally {

@@ -14,8 +14,9 @@ export interface Report {
   longitude: number;
   address: string;
   timestamp: number;
-  status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
-  criticality: 'kritik' | 'yuksek' | 'orta' | 'dusuk';
+  status: 'pending' | 'in_review' | 'in_progress' | 'resolved' | 'rejected';
+  criticality: 'kritik' | 'yuksek' | 'orta' | 'dusuk' | 'belirsiz';
+  rejectReason: string | null;
 }
 
 export interface CreateReportRequest {
@@ -55,7 +56,7 @@ const CATEGORY_LABEL_MAP: Record<string, string> = {
 };
 
 function mapPriority(priority: string | null): Report['criticality'] {
-  if (!priority) return 'dusuk';
+  if (!priority) return 'belirsiz';
   const p = priority.toLowerCase();
   if (p.includes('critical') || p.includes('5')) return 'kritik';
   if (p.includes('high') || p.includes('4')) return 'yuksek';
@@ -65,10 +66,11 @@ function mapPriority(priority: string | null): Report['criticality'] {
 
 function mapReportFromApi(r: Record<string, any>): Report {
   const STATUS_MAP: Record<string, Report['status']> = {
-    pending: 'pending',
+    pending:     'pending',
+    in_review:   'in_review',
     in_progress: 'in_progress',
-    resolved: 'resolved',
-    rejected: 'rejected',
+    resolved:    'resolved',
+    rejected:    'rejected',
   };
 
   const filename = r.imagePath ? r.imagePath.split('/').pop() : null;
@@ -80,13 +82,14 @@ function mapReportFromApi(r: Record<string, any>): Report {
     userDescription: r.userDescription || '',
     aiDescription: r.aiDescription || '',
     category: r.aiCategory || '',
-    categoryLabel: CATEGORY_LABEL_MAP[r.aiCategory] || r.aiCategory || 'Diğer',
+    categoryLabel: r.aiCategory ? (CATEGORY_LABEL_MAP[r.aiCategory] || r.aiCategory) : 'Analiz Bekleniyor',
     latitude: r.latitude || 0,
     longitude: r.longitude || 0,
     address: r.aiUnit || '',
     timestamp: new Date(r.createdAt).getTime(),
-    status: STATUS_MAP[r.status] || 'beklemede',
+    status: STATUS_MAP[r.status] || 'pending',
     criticality: mapPriority(r.aiPriority),
+    rejectReason: r.rejectReason ?? null,
   };
 }
 

@@ -1,200 +1,223 @@
-# SRMS - Infrastructure Report Management System
+# SRMS — Infrastructure Report Management System
 
-## Project Description
+Citizen-facing platform for municipal infrastructure reporting. Citizens submit photo + GPS reports via mobile app; AI categorizes and prioritizes them; admin staff review and dispatch to relevant departments.
 
-SRMS is a citizen-facing infrastructure reporting platform. Users can report issues such as road damage, broken sidewalks, and sewage problems by submitting a photo and GPS location via a mobile app. Reports are automatically analyzed by an AI service that assigns a category, priority level, and description. Administrators can review all reports on an interactive map through a web-based admin panel.
-
-The user interface is in **Turkish**, as the target audience is Turkish municipal staff and local citizens.
+UI language is **Turkish** — target audience is Turkish municipal staff and citizens.
 
 **Flow: Citizen → Mobile App → Backend API → AI Analysis → Admin Panel → Relevant Municipal Department**
 
 ---
 
-## Architecture Overview
+## Architecture
 
+```mermaid
+graph TD
+    Mobile["Mobile App\nReact Native · :8081"]
+    Admin["Admin Panel\nReact 19 + Vite · nginx · :8080"]
+    Core["service-core\nExpress · Node.js · :3000"]
+    DB[("PostgreSQL\n:5432 · pg_data volume")]
+    AI["ai-service\nFastAPI · :8000"]
+    Gemini["Gemini API\nexternal"]
+    Volume[("shared-uploads\nDocker volume")]
+
+    Mobile -->|"multipart/form-data\nimage + GPS"| Core
+    Admin -->|"REST API"| Core
+    Core -->|"SQL"| DB
+    Core -->|"POST /classify\n{ image_path }"| AI
+    AI -->|"image bytes"| Gemini
+    Gemini -->|"description + filter result"| AI
+    AI -->|"category + priority"| Core
+    Core -->|"write image"| Volume
+    Volume -->|"read image"| AI
+
+    style Mobile fill:#6d5ce7,color:#fff
+    style Admin fill:#6d5ce7,color:#fff
+    style Core fill:#00897b,color:#fff
+    style DB fill:#1565c0,color:#fff
+    style AI fill:#e65100,color:#fff
+    style Gemini fill:#4a4a4a,color:#fff
+    style Volume fill:#37474f,color:#fff
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    SRMS Architecture                        │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────────────┐         ┌──────────────────────┐ │
-│  │   Mobile App (Expo)  │────────▶│   Backend API (TS)   │ │
-│  │   React Native       │         │   Express.js         │ │
-│  │   Client             │◀────────│   Node.js ESM        │ │
-│  └──────────────────────┘         └──────────────────────┘ │
-│       • Auth Context                    • Auth Routes       │
-│       • Reports Context                 • JWT + Tokens      │
-│       • Camera + Location               • Report Routes     │
-│       • Image Upload                    • AI Integration    │
-│                                         • File Upload       │
-│  ┌──────────────────────┐         ┌──────────────────────┐ │
-│  │   Admin Panel (HTML) │────────▶│  PostgreSQL Database │ │
-│  │   Leaflet Maps       │         │  • Users             │ │
-│  │   Cluster Markers    │         │  • Reports           │ │
-│  └──────────────────────┘         └──────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
+
+| Module | Tech | Purpose |
+|---|---|---|
+| `client-mobile` | Expo + React Native | Citizen app — submit & track reports |
+| `client-admin` | React 19 + Vite + Leaflet | Admin panel — review, map, personnel |
+| `service-core` | Express + TypeScript + Sequelize | REST API + business logic |
+| `ai-service` | FastAPI + DistilBERT ONNX + Gemini | Image classification pipeline |
 
 ---
 
 ## Project Structure
 
 ```
-SRMS-26/
-├── client-mobile/          # React Native Mobile App (Expo)
-│   ├── app/               # Page/Screen components
-│   ├── components/        # Reusable UI components
-│   ├── context/           # Auth and Report contexts (API integrated)
-│   ├── services/          # API clients
-│   ├── config/            # Environment configuration
-│   ├── test/              # Testing utilities
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── .env.development.example  # Dev environment template
+srms-26/
+├── client-mobile/          # Expo React Native app
+│   ├── app/                # Screens (expo-router)
+│   ├── context/            # Auth + Report contexts
+│   ├── services/           # API clients
 │   └── Dockerfile
 │
-├── client-admin/          # Admin Panel (plain HTML + Leaflet.js)
-│   └── app/admin/
-│       └── index.html     # Single-page admin interface, served at /admin
-│
-├── service-core/          # Node.js Backend API (TypeScript + ESM)
+├── client-admin/           # React + Vite admin panel
 │   ├── src/
-│   │   ├── config/        # Database & environment config
-│   │   ├── models/        # Sequelize models (User, Report)
-│   │   ├── controllers/   # Request handlers
-│   │   ├── routes/        # API routes
-│   │   ├── services/      # Business logic + AI integration
-│   │   ├── middleware/    # Auth, error handling
-│   │   ├── scripts/       # Seed data
-│   │   ├── app.ts         # Express setup
-│   │   └── server.ts      # Server entry point
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── .env.example
+│   │   ├── components/     # Modals, panels, map
+│   │   ├── types.ts
+│   │   └── utils.ts
 │   └── Dockerfile
 │
-├── .env.example            # Environment variables template
-├── docker-compose.yml      # Container orchestration
-└── API_TESTING_GUIDE.md    # API testing documentation
+├── service-core/           # Express API
+│   ├── src/
+│   │   ├── controllers/
+│   │   ├── models/         # User, Report (Sequelize)
+│   │   ├── routes/
+│   │   ├── services/       # Business logic, AI integration
+│   │   ├── middleware/     # Auth, error handler
+│   │   └── scripts/        # DB seed
+│   └── Dockerfile
+│
+├── ai_service/             # FastAPI AI pipeline
+│   ├── app.py              # ONNX classifier + Gemini
+│   ├── main.py             # HTTP endpoints
+│   └── Dockerfile
+│
+└── docker-compose.yml
 ```
 
 ---
 
 ## Stack
 
-### Frontend (Mobile)
-- **Framework**: React Native with Expo
-- **Language**: TypeScript
-- **State Management**: React Context + Hooks
-- **API Client**: Axios with interceptors
-- **Secure Storage**: expo-secure-store
-- **Navigation**: expo-router
+### Mobile (`client-mobile`)
+- React Native + Expo SDK 54
+- expo-router, expo-image-picker, expo-location
+- Axios + JWT interceptor, expo-secure-store
 
-### Admin Panel
-- **Technology**: Plain HTML + Vanilla JavaScript
-- **Maps**: Leaflet.js + MarkerCluster plugin
-- **Served by**: Backend at `/admin` via `express.static`
+### Admin Panel (`client-admin`)
+- React 19 + TypeScript + Vite
+- Leaflet + react-leaflet-cluster
+- nginx (production static serving)
 
-### Backend
-- **Runtime**: Node.js 20
-- **Framework**: Express.js
-- **Language**: TypeScript (ESM modules)
-- **ORM**: Sequelize
-- **Database**: PostgreSQL
-- **Authentication**: JWT
-- **AI**: Gradio API integration
-- **File Upload**: Multer
+### Backend (`service-core`)
+- Node.js 20, Express.js, TypeScript (ESM)
+- Sequelize ORM + PostgreSQL
+- JWT + bcrypt, Multer (file upload)
+- Helmet, CORS, Morgan
 
-### DevOps
-- **Containerization**: Docker + Docker Compose
-- **Database**: PostgreSQL 16 Alpine
+### AI Service (`ai-service`)
+- FastAPI + uvicorn
+- Gemini API — image analysis + troll filtering
+- DistilBERT ONNX — text classification (14 categories)
+
+---
+
+## Report Lifecycle
+
+```
+pending → in_review → in_progress → resolved
+                    ↘ rejected ↗  (admin can re-open)
+```
+
+| Status | Description |
+|---|---|
+| `pending` | AI analyzing in background |
+| `in_review` | Awaiting admin/reviewer decision |
+| `in_progress` | Approved or corrected, field team working |
+| `resolved` | Closed |
+| `rejected` | Rejected with mandatory reason |
+
+Troll-filtered reports (NSFW, non-photo, indoor) are auto-rejected without entering the review queue.
 
 ---
 
 ## Quick Start
 
-> For detailed setup instructions see [QUICK_START.md](QUICK_START.md).
-
-**Requires:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+**Requires:** Docker + Docker Compose
 
 ```bash
-git clone https://github.com/TunaAlan/srms-26.git
+git clone <repo-url>
 cd srms-26
-cp .env.example .env        # set HOST_IP to your local IP
+# Add GEMINI_API_KEY to ai_service/.env
 docker-compose up --build
 ```
 
 | Service | URL |
-|---------|-----|
-| Admin Panel | http://localhost:3000/admin |
+|---|---|
+| Admin Panel | http://localhost:8080 |
 | Backend API | http://localhost:3000/api |
-| Database | localhost:5433 |
+| Mobile (Metro) | http://localhost:8081 |
+| AI Service | http://localhost:8000 |
+| PostgreSQL | localhost:5433 |
 
-Admin login: `admin@ankara.bel.tr` / `admin123`
+**Test accounts** (seeded on first run):
 
----
-
-## Key Features
-
-### Mobile App
-- ✅ User authentication with JWT
-- ✅ Report creation with photo and GPS location
-- ✅ AI-powered report analysis (category, priority, description)
-- ✅ Report history listing
-
-### Backend API
-- ✅ JWT authentication with role-based access (user, admin, department)
-- ✅ File upload with persistent volume storage
-- ✅ AI service integration (Gradio API)
-- ✅ Admin panel static serving at `/admin`
-
-### Admin Panel
-- ✅ Interactive map with clustered report markers (Leaflet.js)
-- ✅ Category-based filtering
-- ✅ Report detail view (user and AI descriptions separately)
-- ✅ User management
+| Role | Email | Password |
+|---|---|---|
+| `admin` | admin@ankara.bel.tr | admin123 |
+| `review_personnel` | review@ankara.bel.tr | review123 |
 
 ---
 
 ## API Endpoints
 
-### Authentication
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `GET /api/auth/me`
+### Auth
+```
+POST  /api/auth/register
+POST  /api/auth/login
+POST  /api/auth/logout
+GET   /api/auth/me
+```
 
 ### Reports
-- `POST /api/reports` — Create report (photo + location)
-- `GET /api/reports/my` — Current user's reports
-- `GET /api/reports` — All reports (admin/department)
-- `GET /api/reports/:id` — Single report
-- `PATCH /api/reports/:id/review` — Review report (admin/department)
+```
+POST   /api/reports                   # Submit report (multipart/form-data)
+GET    /api/reports/my                # Own reports (user)
+GET    /api/reports                   # All reports (admin, review_personnel)
+GET    /api/reports/:id
+PATCH  /api/reports/:id/review        # Approve / correct / reject
+PATCH  /api/reports/:id/status        # Workflow status change (admin)
+DELETE /api/reports/:id               # Admin only
+GET    /api/reports/images/:filename  # Serve uploaded image
+```
 
-### Other
-- `GET /health` — Health check
-- `GET /api/reports/images/:filename` — Serve uploaded image
+### Users (Admin only)
+```
+GET    /api/users
+POST   /api/users
+PATCH  /api/users/:id/active
+DELETE /api/users/:id
+```
 
-For full API reference see [API_TESTING_GUIDE.md](API_TESTING_GUIDE.md).
+---
+
+## Key Design Decisions
+
+- **Shared volume** — images written once by service-core, read directly by ai-service. No network transfer of file bytes between services.
+- **Async AI** — `POST /reports` returns immediately with `status: pending`; AI updates the report in the background.
+- **Single status field** — `status` drives the entire workflow; `reviewStatus` records only the reviewer's decision (`approved | corrected | rejected`).
+- **reviewedBy** — every review decision is attributed to a user; resolved via DB JOIN, not client-side lookup.
 
 ---
 
 ## Troubleshooting
 
 | Issue | Solution |
-|-------|----------|
+|---|---|
 | Port already in use | `lsof -i :<port>` → `kill -9 <PID>` |
-| DB connection failed | `docker ps` — check containers are running |
-| Mobile can't reach backend | Use local IP in `.env.development`, not `localhost` |
-| Admin panel not opening | Backend must be running: `curl http://localhost:3000/health` |
+| DB connection failed | `docker ps` — check all containers are running |
+| Mobile can't reach backend | Use machine's local IP in `.env.development`, not `localhost` |
+| AI service crash | Check `GEMINI_API_KEY` in `ai_service/.env` |
+| Reports stuck at `pending` | AI service may be down — check `docker logs srms-26-ai-service-1` |
+
+---
+
+## Module READMEs
+
+- [client-admin](client-admin/README.md)
+- [client-mobile](client-mobile/README.md)
+- [service-core](service-core/README.md)
 
 ---
 
 ## License
 
 Internal use only.
-
-## Related Documentation
-
-- [Quick Start Guide](QUICK_START.md)
-- [API Testing Guide](API_TESTING_GUIDE.md)
-- [Backend README](service-core/README.md)

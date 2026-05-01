@@ -1,5 +1,17 @@
 import { AI_SERVICE_URL } from '../config/env.js';
 
+const DEPT_NORMALIZE: Record<string, string> = {
+  'Fen Isleri':        'Fen İşleri',
+  'Temizlik Isleri':   'Temizlik İşleri',
+  'Cevre Koruma':      'Çevre Koruma',
+  'Park ve Bahceler':  'Park ve Bahçeler',
+  'Zabita':            'Zabıta',
+};
+
+function normalizeDept(value: string): string {
+  return DEPT_NORMALIZE[value] ?? value;
+}
+
 export interface AiResult {
   category: string;
   priority: number;
@@ -7,6 +19,8 @@ export interface AiResult {
   confidence: number;
   department: string;
   description: string;
+  rejected: boolean;
+  rejectReason: string | null;
 }
 
 export async function analyzeImage(imagePath: string): Promise<AiResult> {
@@ -49,7 +63,9 @@ export async function analyzeImage(imagePath: string): Promise<AiResult> {
       priorityLabel: 'Irrelevant',
       confidence: 0,
       department: '-',
-      description: data.reject_reason ?? '',
+      description: '',
+      rejected: true,
+      rejectReason: data.reject_reason ?? null,
     };
   }
 
@@ -58,8 +74,10 @@ export async function analyzeImage(imagePath: string): Promise<AiResult> {
     priority: data.priority ?? 0,
     priorityLabel: data.priority_label ?? 'Unknown',
     confidence: data.confidence ?? 0,
-    department: data.department ?? '-',
+    department: normalizeDept(data.department ?? '-'),
     description: data.description ?? '',
+    rejected: false,
+    rejectReason: null,
   };
 }
 

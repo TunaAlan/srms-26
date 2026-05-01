@@ -5,8 +5,8 @@ import { getTimeAgo, getStatusLabel, getCriticalityLabel } from '../utils';
 type SortKey = 'category' | 'status' | 'criticality' | 'timestamp';
 type SortDir = 'asc' | 'desc';
 
-const STATUS_ORDER: Record<string, number> = { pending: 0, in_progress: 1, resolved: 2, rejected: 3 };
-const CRIT_ORDER: Record<string, number>   = { kritik: 0, yuksek: 1, orta: 2, dusuk: 3 };
+const STATUS_ORDER: Record<string, number> = { pending: 0, in_review: 1, in_progress: 2, resolved: 3, rejected: 4 };
+const CRIT_ORDER: Record<string, number> = { kritik: 0, yuksek: 1, orta: 2, dusuk: 3 };
 
 interface ReportsListProps {
   reports: Report[];
@@ -17,6 +17,8 @@ interface ReportsListProps {
   setFilterCategory: (val: string) => void;
   filterCriticality: string;
   setFilterCriticality: (val: string) => void;
+  filterUnit: string;
+  setFilterUnit: (val: string) => void;
   searchQuery: string;
   setSearchQuery: (val: string) => void;
   onView: (id: string) => void;
@@ -32,6 +34,8 @@ export const ReportsList: React.FC<ReportsListProps> = ({
   setFilterCategory,
   filterCriticality,
   setFilterCriticality,
+  filterUnit,
+  setFilterUnit,
   searchQuery,
   setSearchQuery,
   onView,
@@ -53,6 +57,7 @@ export const ReportsList: React.FC<ReportsListProps> = ({
     if (filterStatus !== 'all' && r.status !== filterStatus) return false;
     if (filterCategory !== 'all' && r.category !== filterCategory) return false;
     if (filterCriticality !== 'all' && r.criticality !== filterCriticality) return false;
+    if (filterUnit !== 'all' && r.aiUnit !== filterUnit) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
@@ -66,10 +71,10 @@ export const ReportsList: React.FC<ReportsListProps> = ({
 
   const sorted = [...filtered].sort((a, b) => {
     let cmp = 0;
-    if (sortKey === 'category')    cmp = a.categoryLabel.localeCompare(b.categoryLabel, 'tr');
-    if (sortKey === 'status')      cmp = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9);
+    if (sortKey === 'category') cmp = a.categoryLabel.localeCompare(b.categoryLabel, 'tr');
+    if (sortKey === 'status') cmp = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9);
     if (sortKey === 'criticality') cmp = (CRIT_ORDER[a.criticality] ?? 9) - (CRIT_ORDER[b.criticality] ?? 9);
-    if (sortKey === 'timestamp')   cmp = a.timestamp - b.timestamp;
+    if (sortKey === 'timestamp') cmp = a.timestamp - b.timestamp;
     return sortDir === 'asc' ? cmp : -cmp;
   });
 
@@ -87,8 +92,10 @@ export const ReportsList: React.FC<ReportsListProps> = ({
         <select className="filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
           <option value="all">Tüm Durumlar</option>
           <option value="pending">Beklemede</option>
+          <option value="in_review">İncelemede</option>
           <option value="in_progress">İşlemde</option>
           <option value="resolved">Çözüldü</option>
+          <option value="rejected">Reddedildi</option>
         </select>
         <select className="filter-select" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
           <option value="all">Tüm Kategoriler</option>
@@ -114,6 +121,19 @@ export const ReportsList: React.FC<ReportsListProps> = ({
           <option value="orta">Orta</option>
           <option value="dusuk">Düşük</option>
         </select>
+        <select className="filter-select" value={filterUnit} onChange={(e) => setFilterUnit(e.target.value)}>
+          <option value="all">Tüm Birimler</option>
+          <option value="Fen İşleri">Fen İşleri</option>
+          <option value="Temizlik İşleri">Temizlik İşleri</option>
+          <option value="Çevre Koruma">Çevre Koruma</option>
+          <option value="Park ve Bahçeler">Park ve Bahçeler</option>
+          <option value="Elektrik Birimi">Elektrik Birimi</option>
+          <option value="Trafik Birimi">Trafik Birimi</option>
+          <option value="Su ve Kanalizasyon">Su ve Kanalizasyon</option>
+          <option value="Zabıta">Zabıta</option>
+          <option value="Veteriner Birimi">Veteriner Birimi</option>
+          <option value="Afet Koordinasyon">Afet Koordinasyon</option>
+        </select>
         <input
           type="text"
           className="filter-search"
@@ -128,7 +148,7 @@ export const ReportsList: React.FC<ReportsListProps> = ({
           <div className="empty-state">
             <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
             <div style={{ fontSize: '16px', fontWeight: 600 }}>Sonuç Bulunamadı</div>
-            <div style={{ fontSize: '13px', marginTop: '4px' }}>Filtre kriterlerinize uygun bildirim yok</div>
+            <div style={{ fontSize: '13px', marginTop: '4px' }}>Filtre kriterlerinize uygun rapor yok</div>
           </div>
         ) : (
           <table>
@@ -148,7 +168,7 @@ export const ReportsList: React.FC<ReportsListProps> = ({
                 <th style={thStyle} onClick={() => handleSort('timestamp')}>
                   Zaman <SortIcon col="timestamp" />
                 </th>
-                <th>İşlemler</th>
+                {role === 'admin' && <th>İşlemler</th>}
               </tr>
             </thead>
             <tbody>
@@ -157,9 +177,10 @@ export const ReportsList: React.FC<ReportsListProps> = ({
                 if (r.criticality === 'kritik') badgeDotColor = 'var(--critical)';
                 else if (r.criticality === 'yuksek') badgeDotColor = 'var(--high)';
                 else if (r.criticality === 'orta') badgeDotColor = 'var(--medium)';
+                else if (r.criticality === 'belirsiz') badgeDotColor = 'var(--text-tertiary)';
 
                 return (
-                  <tr key={r.id}>
+                  <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => onView(r.id)}>
                     <td>
                       <img
                         src={r.image || ''}
@@ -168,7 +189,9 @@ export const ReportsList: React.FC<ReportsListProps> = ({
                       />
                     </td>
                     <td>
-                      <div className="report-desc">{r.description}</div>
+                      <div className="report-desc" style={!r.description ? { color: 'var(--text-tertiary)', fontStyle: 'italic' } : undefined}>
+                        {r.description || 'Analiz bekleniyor...'}
+                      </div>
                       <div className="report-address">
                         {r.address && <span>📍 {r.address}</span>}
                         {r.aiUnit && <span style={{ marginLeft: r.address ? '8px' : '0' }}>🏢 {r.aiUnit}</span>}
@@ -192,14 +215,13 @@ export const ReportsList: React.FC<ReportsListProps> = ({
                       </span>
                     </td>
                     <td className="time-cell">{getTimeAgo(r.timestamp)}</td>
-                    <td>
-                      <div className="actions-cell">
-                        <button className="btn btn-status" onClick={() => onView(r.id)} title="Detay">👁️ Detay</button>
-                        {role === 'super_admin' && (
-                          <button className="btn btn-delete" onClick={() => onDelete(r.id)} title="Sil">🗑️</button>
-                        )}
-                      </div>
-                    </td>
+                    {role === 'admin' && (
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <div className="actions-cell">
+                          <button className="btn btn-delete" onClick={() => onDelete(r.id)} title="Sil">✕</button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

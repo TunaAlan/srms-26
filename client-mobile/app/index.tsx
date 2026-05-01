@@ -2,6 +2,7 @@ import { theme } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 import { useReports } from "@/context/ReportContext";
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { Redirect, useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -39,9 +40,9 @@ export default function HomeScreen() {
     return <Redirect href="/login" />;
   }
 
-  const pendingCount = reports.filter((r) => r.status === "beklemede").length;
-  const reviewCount = reports.filter((r) => r.status === "inceleniyor").length;
-  const resolvedCount = reports.filter((r) => r.status === "cozuldu").length;
+  const pendingCount = reports.filter((r) => r.status === "pending" || r.status === "in_review").length;
+  const reviewCount = reports.filter((r) => r.status === "in_progress").length;
+  const resolvedCount = reports.filter((r) => r.status === "resolved").length;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -186,6 +187,10 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={styles.modalDivider} />
+            <Text style={styles.modalVersion}>
+              v{Constants.expoConfig?.version ?? '—'}
+            </Text>
+            <View style={styles.modalDivider} />
             <TouchableOpacity style={styles.modalLogout} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={20} color={theme.colors.danger} />
               <Text style={styles.modalLogoutText}>Çıkış Yap</Text>
@@ -316,6 +321,12 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: theme.colors.border,
     marginHorizontal: 16,
+  },
+  modalVersion: {
+    fontSize: 11,
+    color: theme.colors.textTertiary,
+    textAlign: "center",
+    paddingVertical: 8,
   },
   modalLogout: {
     flexDirection: "row",

@@ -51,6 +51,11 @@ export const login = async ({ email, password }: LoginInput) => {
     throw err;
   }
 
+  if (!user.isActive) {
+    const err = Object.assign(new Error('Hesabınız askıya alınmıştır. Yöneticinizle iletişime geçin.'), { statusCode: 403 });
+    throw err;
+  }
+
   const token = generateToken(user);
   return { user: user.toSafeJSON(), token };
 };
