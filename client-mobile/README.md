@@ -1,50 +1,82 @@
-# Welcome to your Expo app 👋
+# client-mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Citizen-facing mobile app for the SRMS infrastructure reporting platform. Built with Expo + React Native, targeting iOS and Android.
 
-## Get started
+## Stack
 
-1. Install dependencies
+- **Expo SDK 54** + React Native 0.81
+- **expo-router** — file-based routing
+- **expo-image-picker** + **expo-location** — photo and GPS capture
+- **expo-constants** — version from `app.json`
+- **axios** — API client with JWT interceptor
+- **expo-secure-store** — token storage
 
-   ```bash
-   npm install
-   ```
+## Screens
 
-2. Start the app
+| Screen | Route | Description |
+|---|---|---|
+| Home *(Ana Sayfa)* | `/` | Stats, quick actions |
+| Report *(Bildirim)* | `/report` | Submit new report |
+| History *(Geçmiş)* | `/history` | User's own reports |
+| Map *(Harita)* | `/map` | Reports on map |
+| Login | `/login` | Citizen login |
+| Register | `/register` | Citizen registration |
 
-   ```bash
-   npx expo start
-   ```
+## Report Status Flow
 
-In the output, you'll find options to open the app in a
+| Status | Label *(TR)* | Description |
+|---|---|---|
+| `pending` | Beklemede | AI analyzing |
+| `in_review` | İncelemede | Awaiting admin review |
+| `in_progress` | İşleme Alındı | Approved, field team working |
+| `resolved` | Çözüldü | Closed |
+| `rejected` | Reddedildi | Rejected — reason shown to user |
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+When a report is rejected, the reason is displayed directly in the history card.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Dev Setup
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Copy and configure the environment file:
 
-## Learn more
+```bash
+cp .env.development.example .env.development
+# Set API_BASE_URL to your local machine IP, not localhost
+# e.g. EXPO_PUBLIC_API_BASE_URL=http://192.168.1.x:3000/api
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Start Metro:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npx expo start
+```
 
-## Join the community
+Scan the QR code with **Expo Go** (iOS/Android) or press `a` for Android emulator.
 
-Join our community of developers creating universal apps.
+## Environment
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+EXPO_PUBLIC_API_BASE_URL=http://<host>:3000/api
+```
+
+Use your machine's local IP — `localhost` won't resolve from a physical device or emulator.
+
+## Version
+
+Displayed in the account modal (avatar → tap). Sourced from `app.json`:
+
+```json
+{ "version": "0.6.0" }
+```
+
+## Docker
+
+The mobile container runs Metro Bundler — intended for development only. In production, build a standalone app with EAS Build.
+
+```bash
+docker-compose up client-mobile
+# Metro available at http://<HOST_IP>:8081
+```

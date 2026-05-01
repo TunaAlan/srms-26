@@ -6,7 +6,7 @@
 |----|----------|-------------|
 | FR-01 | User Authentication | The system shall allow citizens to register and log in via the mobile application using email and password credentials. |
 
-| FR-02 | User Authentication | The system shall allow administrators to log in to the web-based admin panel with role-based authorization (admin, municipal employee). |
+| FR-02 | User Authentication | The system shall allow administrators to log in to the web-based admin panel with role-based authorization (admin, personnel/municipal employee). |
 
 | FR-03 | User Authentication | The system shall manage user sessions using JWT tokens and handle logout and session expiration. |
 
