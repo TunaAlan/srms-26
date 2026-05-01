@@ -93,7 +93,7 @@ export function mapReport(r: any): any {
   return {
     id: r.id,
     image: filename ? `/api/reports/images/${filename}` : null,
-    description: r.aiDescription || '',
+    description: r.aiDescription || r.rejectReason || '',
     userDescription: r.userDescription || '',
     category: r.aiCategory || '',
     categoryLabel: r.aiCategory ? (CATEGORY_LABEL_MAP[r.aiCategory] || r.aiCategory) : 'Analiz Bekleniyor',
