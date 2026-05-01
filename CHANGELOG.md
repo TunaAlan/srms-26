@@ -60,8 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PhotoLightbox` component — full-screen image viewer on report photo click.
 
 #### Removed
-- `EmergencyReports` component removed — emergency role and forward workflow retired in favour of the unified status lifecycle.
-- `ForwardModal` component removed.
+- `EmergencyReports` and `ForwardModal` components removed — following requirements clarification, the emergency officer role and dedicated forward workflow are out of scope.
 
 ---
 
