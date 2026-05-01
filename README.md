@@ -218,6 +218,20 @@ DELETE /api/users/:id
 
 ---
 
+## Module Boundaries
+
+Each module exists for a distinct reason — not because of UI differences alone, but because of runtime and deployment context:
+
+| Module | Runtime | Deploy target | Audience |
+|---|---|---|---|
+| `client-admin` | Browser | nginx container | Municipal staff |
+| `client-mobile` | iOS / Android (React Native) | Expo Go / EAS Build | Citizens |
+| `service-core` | Node.js | Express container | — |
+
+A module is justified when it can be removed without breaking the others, and when it has a different deployment target or runtime. All three modules pass this test — `client-admin` and `client-mobile` share no code and run in entirely different environments. The module boundary here is not an arbitrary folder split; it reflects a real runtime boundary.
+
+---
+
 ## Versioning
 
 This monorepo uses **parallel versioning** — all modules (`client-admin`, `client-mobile`, `service-core`) share a single version number at all times.
