@@ -163,8 +163,9 @@ export async function changeStatus(id: string, status: 'in_review' | 'in_progres
   if (status === 'in_review') {
     updates.reviewStatus = null;
     updates.rejectReason = null;
+    updates.staffNote = note ?? null;
   }
-  if (note !== undefined) updates.staffNote = note;
+  if (status !== 'in_review' && note !== undefined) updates.staffNote = note;
   await report.update(updates);
   return report;
 }

@@ -204,8 +204,8 @@ function App() {
       await changeReportStatus(id, status, note);
       patchReport(id, {
         status,
-        ...(status === 'in_review' ? { reviewStatus: null, rejectReason: null } : {}),
-        ...(note !== undefined ? { resolution: note } : {}),
+        ...(status === 'in_review' ? { reviewStatus: null, rejectReason: null, resolution: note ?? '' } : {}),
+        ...(status !== 'in_review' && note !== undefined ? { resolution: note } : {}),
       });
     } catch (err) {
       console.error('Durum değiştirilemedi:', err);
