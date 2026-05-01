@@ -112,14 +112,14 @@ export const DetailModal: React.FC<DetailModalProps> = ({ report, role, onClose,
             </div>
             <div className="modal-info-item">
               <div className="modal-info-label">İnceleme</div>
-              <div className="modal-info-value">
+              <div className="modal-info-value" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <span className={`badge badge-review-${report.reviewStatus ?? 'pending'}`}>
                   {getReviewStatusLabel(report.reviewStatus)}
                 </span>
                 {report.reviewedByName && (
-                  <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
                     👤 {report.reviewedByName}
-                  </div>
+                  </span>
                 )}
               </div>
             </div>
