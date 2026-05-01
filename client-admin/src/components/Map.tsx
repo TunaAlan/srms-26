@@ -11,13 +11,6 @@ interface MapViewProps {
   onReportClick?: (report: Report) => void;
 }
 
-const statusColors: Record<string, string> = {
-  pending:     '#E8A317',
-  in_progress: '#0288D1',
-  resolved:    '#0D9E4F',
-  rejected:    '#D32F2F',
-};
-
 const critColors: Record<string, string> = {
   kritik: '#D32F2F',
   yuksek: '#E8651A',
@@ -58,11 +51,19 @@ export const MapView: React.FC<MapViewProps> = ({ reports, focusReport, onReport
           spiderfyOnMaxZoom={true}
           spiderfyDistanceMultiplier={1.8}
           disableClusteringAtZoom={17}
-          iconCreateFunction={(cluster: { getChildCount: () => number }) => {
+          iconCreateFunction={(cluster: any) => {
             const count = cluster.getChildCount();
             const size = count < 5 ? 36 : count < 15 ? 44 : 52;
+            const markers = cluster.getAllChildMarkers();
+            const criticalCount = markers.filter((m: any) => {
+              const html = m.options?.icon?.options?.html as string;
+              return html?.includes('data-crit="kritik"');
+            }).length;
+            const badge = criticalCount > 0
+              ? `<div style="position:absolute;top:-4px;right:-4px;background:#D32F2F;color:white;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid white;font-family:'Plus Jakarta Sans',sans-serif;">${criticalCount}</div>`
+              : '';
             return L.divIcon({
-              html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#005BAA;border:3px solid white;box-shadow:0 2px 8px rgba(0,91,170,0.4);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:${size < 44 ? 13 : 15}px;font-family:'Plus Jakarta Sans',sans-serif;">${count}</div>`,
+              html: `<div style="position:relative;width:${size}px;height:${size}px;"><div style="width:${size}px;height:${size}px;border-radius:50%;background:#005BAA;border:3px solid white;box-shadow:0 2px 8px rgba(0,91,170,0.4);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:${size < 44 ? 13 : 15}px;font-family:'Plus Jakarta Sans',sans-serif;">${count}</div>${badge}</div>`,
               iconSize: [size, size],
               iconAnchor: [size / 2, size / 2],
               className: '',
@@ -71,14 +72,13 @@ export const MapView: React.FC<MapViewProps> = ({ reports, focusReport, onReport
         >
           {reports.map((r) => {
             if (!r.latitude && !r.longitude) return null;
-            const color = statusColors[r.status] || '#8E95A8';
             const critColor = critColors[r.criticality] || '#8E95A8';
-            
             const isFocused = focusReport?.id === r.id;
+            const size = isFocused ? 26 : 18;
             const icon = L.divIcon({
-              html: `<div style="width:${isFocused ? 24 : 18}px;height:${isFocused ? 24 : 18}px;border-radius:50%;background:${color};border:${isFocused ? '4px solid #005BAA' : '3px solid white'};box-shadow:0 2px 6px rgba(0,0,0,0.3);transition:all 0.3s;"></div>`,
-              iconSize: [isFocused ? 32 : 24, isFocused ? 32 : 24],
-              iconAnchor: [isFocused ? 16 : 12, isFocused ? 16 : 12],
+              html: `<div data-crit="${r.criticality}" style="width:${size}px;height:${size}px;border-radius:50%;background:${critColor};border:${isFocused ? `3px solid white;outline:3px solid ${critColor}` : '3px solid white'};box-shadow:0 2px 8px rgba(0,0,0,0.35);transition:all 0.2s;"></div>`,
+              iconSize: [size, size],
+              iconAnchor: [size / 2, size / 2],
               className: '',
             });
 
@@ -105,8 +105,8 @@ export const MapView: React.FC<MapViewProps> = ({ reports, focusReport, onReport
                     </div>
                     <div style={{ marginTop: '6px', display: 'flex', gap: '4px' }}>
                       <span style={{
-                        background: r.status === 'pending' ? '#FFF8E6' : r.status === 'in_progress' ? '#E3F2FD' : r.status === 'rejected' ? '#FDEDED' : r.status === 'resolved' ? '#E6F7ED' : '#F5F5F5',
-                        color: r.status === 'pending' ? '#E8A317' : r.status === 'in_progress' ? '#0288D1' : r.status === 'rejected' ? '#D32F2F' : r.status === 'resolved' ? '#0D9E4F' : '#8E95A8',
+                        background: r.status === 'pending' ? '#FFF8E6' : r.status === 'in_review' ? '#F3F0FF' : r.status === 'in_progress' ? '#E3F2FD' : r.status === 'rejected' ? '#FDEDED' : r.status === 'resolved' ? '#E6F7ED' : '#F5F5F5',
+                        color: r.status === 'pending' ? '#E8A317' : r.status === 'in_review' ? '#7C3AED' : r.status === 'in_progress' ? '#0288D1' : r.status === 'rejected' ? '#D32F2F' : r.status === 'resolved' ? '#0D9E4F' : '#8E95A8',
                         padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: 700
                       }}>
                         {getStatusLabel(r.status)}

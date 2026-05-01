@@ -68,25 +68,25 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
 
   const thStyle: React.CSSProperties = { cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' };
 
-  const pending = reports.filter((r) => r.reviewStatus === 'pending');
+  const pending = reports.filter((r) => r.status === 'in_review');
   const lowCount = pending.filter((r) => (r.aiConfidence ?? 1) < CONFIDENCE_THRESHOLD).length;
   const highCount = pending.filter((r) => (r.aiConfidence ?? 0) >= CONFIDENCE_THRESHOLD).length;
 
   const filteredQueue = pending.filter((r) => {
-    // 1. Güven skoru filtresi
+    // 1. Confidence Score Filter
     const passesConfidence = confidenceFilter === 'low'
       ? (r.aiConfidence ?? 1) < CONFIDENCE_THRESHOLD
       : (r.aiConfidence ?? 0) >= CONFIDENCE_THRESHOLD;
 
     if (!passesConfidence) return false;
 
-    // 2. Kategori filtresi
+    // 2. Category Filter
     if (filterCategory !== 'all' && r.category !== filterCategory) return false;
 
-    // 3. Aciliyet filtresi
+    // 3. Critality Filter
     if (filterCriticality !== 'all' && r.criticality !== filterCriticality) return false;
 
-    // 3. Arama filtresi
+    // 3. Search Filter
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
@@ -101,10 +101,10 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
 
   const queue = [...filteredQueue].sort((a, b) => {
     let cmp = 0;
-    if (sortKey === 'category')    cmp = a.categoryLabel.localeCompare(b.categoryLabel, 'tr');
+    if (sortKey === 'category') cmp = a.categoryLabel.localeCompare(b.categoryLabel, 'tr');
     if (sortKey === 'criticality') cmp = (CRIT_ORDER[a.criticality] ?? 9) - (CRIT_ORDER[b.criticality] ?? 9);
-    if (sortKey === 'confidence')  cmp = (a.aiConfidence ?? 0) - (b.aiConfidence ?? 0);
-    if (sortKey === 'timestamp')   cmp = a.timestamp - b.timestamp;
+    if (sortKey === 'confidence') cmp = (a.aiConfidence ?? 0) - (b.aiConfidence ?? 0);
+    if (sortKey === 'timestamp') cmp = a.timestamp - b.timestamp;
     return sortDir === 'asc' ? cmp : -cmp;
   });
 
@@ -286,8 +286,8 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
           role={role}
           onClose={() => setInspectTarget(null)}
           onApprove={onApprove}
-          onCorrect={onCorrect}
-          onReject={onReject}
+          onCorrect={(r) => { setInspectTarget(null); onCorrect(r); }}
+          onReject={(r) => { setInspectTarget(null); onReject(r); }}
           onViewOnMap={onViewOnMap}
         />
       )}

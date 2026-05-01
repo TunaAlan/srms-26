@@ -4,10 +4,11 @@ import type { Report } from '../types';
 interface RejectModalProps {
   report: Report;
   onClose: () => void;
+  onBack?: () => void;
   onConfirm: (id: string, reason: string) => void;
 }
 
-export const RejectModal: React.FC<RejectModalProps> = ({ report, onClose, onConfirm }) => {
+export const RejectModal: React.FC<RejectModalProps> = ({ report, onClose, onBack, onConfirm }) => {
   const [reason, setReason] = useState('');
 
   const handleConfirm = () => {
@@ -42,7 +43,7 @@ export const RejectModal: React.FC<RejectModalProps> = ({ report, onClose, onCon
         </div>
 
         <div className="modal-footer">
-          <button className="btn-cancel" onClick={onClose}>İptal</button>
+          <button className="btn-cancel" onClick={onBack ?? onClose}>{onBack ? '← Geri' : 'İptal'}</button>
           <button
             className="btn-delete-confirm"
             onClick={handleConfirm}

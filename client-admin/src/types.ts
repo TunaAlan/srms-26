@@ -10,17 +10,25 @@ export interface Report {
   longitude: number;
   address: string;
   timestamp: number;
-  status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
-  criticality: 'kritik' | 'yuksek' | 'orta' | 'dusuk';
+  status: 'pending' | 'in_review' | 'in_progress' | 'resolved' | 'rejected';
+  criticality: 'kritik' | 'yuksek' | 'orta' | 'dusuk' | 'belirsiz';
   resolution: string;
-  reviewStatus: 'pending' | 'approved' | 'corrected' | 'rejected' | null;
+  reviewStatus: 'approved' | 'corrected' | 'rejected' | null;
   rejectReason: string | null;
-  forwardNote: string | null;
-  forwardStatus: 'forwarded' | 'completed' | null;
+  reviewedByName: string | null;
   aiConfidence: number | null;
   aiUnit: string | null;
 }
 
-export type TabState = 'dashboard' | 'reports' | 'map' | 'review' | 'emergency';
+export interface StaffUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'review_personnel';
+  isActive: boolean;
+  createdAt: string;
+}
 
-export type UserRole = 'super_admin' | 'review' | 'emergency';
+export type TabState = 'dashboard' | 'reports' | 'map' | 'review' | 'personnel';
+
+export type UserRole = 'admin' | 'review_personnel';

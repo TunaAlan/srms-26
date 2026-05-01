@@ -42,6 +42,29 @@ export async function logout(): Promise<void> {
   }
 }
 
+export async function fetchStaff() {
+  return apiFetch('/users');
+}
+
+export async function createStaff(data: { name: string; email: string; password: string; role: string }) {
+  return apiFetch('/users', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function setStaffActive(id: string, isActive: boolean) {
+  return apiFetch(`/users/${id}/active`, { method: 'PATCH', body: JSON.stringify({ isActive }) });
+}
+
+export async function deleteStaff(id: string) {
+  return apiFetch(`/users/${id}`, { method: 'DELETE' });
+}
+
+export async function changeReportStatus(id: string, status: 'in_review' | 'in_progress' | 'resolved', note?: string): Promise<void> {
+  await apiFetch(`/reports/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, ...(note ? { note } : {}) }),
+  });
+}
+
 export async function login(email: string, password: string): Promise<any> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
@@ -50,7 +73,7 @@ export async function login(email: string, password: string): Promise<any> {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Giriş başarısız');
-  if (!['super_admin', 'review', 'emergency'].includes(data.user.role)) {
+  if (!['admin', 'review_personnel'].includes(data.user.role)) {
     throw new Error('Bu panele erişim yetkiniz yok.');
   }
   return data;

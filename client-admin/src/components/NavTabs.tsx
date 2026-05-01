@@ -6,25 +6,19 @@ interface NavTabsProps {
   onTabChange: (tab: TabState) => void;
   role: UserRole;
   reviewCount: number;
-  emergencyCount: number;
 }
 
 const TAB_SETS: Record<UserRole, { id: TabState; label: string }[]> = {
-  super_admin: [
+  admin: [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'reports', label: 'Raporlar' },
     { id: 'review', label: 'İnceleme Kuyruğu' },
-    { id: 'emergency', label: 'Müdahale' },
     { id: 'map', label: 'Harita' },
+    { id: 'personnel', label: 'Personel' },
   ],
-  review: [
+  review_personnel: [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'review', label: 'İnceleme Kuyruğu' },
-    { id: 'map', label: 'Harita' },
-  ],
-  emergency: [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'emergency', label: 'Müdahale' },
     { id: 'map', label: 'Harita' },
   ],
 };
@@ -34,7 +28,6 @@ export const NavTabs: React.FC<NavTabsProps> = ({
   onTabChange,
   role,
   reviewCount,
-  emergencyCount,
 }) => {
   const tabs = TAB_SETS[role];
 
@@ -49,9 +42,6 @@ export const NavTabs: React.FC<NavTabsProps> = ({
           {t.label}
           {t.id === 'review' && reviewCount > 0 && (
             <span className="nav-tab-badge nav-tab-badge-review">{reviewCount}</span>
-          )}
-          {t.id === 'emergency' && emergencyCount > 0 && (
-            <span className="nav-tab-badge nav-tab-badge-emergency">{emergencyCount}</span>
           )}
         </div>
       ))}

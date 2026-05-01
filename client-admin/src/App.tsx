@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { apiFetch, login, logout as apiLogout, getToken } from './api';
-import type { Report, TabState, UserRole } from './types';
+import { useState, useEffect, useRef } from 'react';
+import { apiFetch, login, logout as apiLogout, getToken, changeReportStatus, fetchStaff, createStaff, setStaffActive, deleteStaff } from './api';
+import type { Report, StaffUser, TabState, UserRole } from './types';
+// StaffUser used via useState<StaffUser[]>
 import { mapReport } from './utils';
 
 import { LoginScreen } from './components/LoginScreen';
@@ -15,17 +16,17 @@ import { ReviewQueue } from './components/ReviewQueue';
 import { InspectionModal } from './components/InspectionModal';
 import { ReviewModal } from './components/ReviewModal';
 import { RejectModal } from './components/RejectModal';
-import { EmergencyReports } from './components/EmergencyReports';
-import { ForwardModal } from './components/ForwardModal';
+import { PersonnelPanel } from './components/PersonnelPanel';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [userRole, setUserRole] = useState<UserRole>('super_admin');
+  const [userRole, setUserRole] = useState<UserRole>('admin');
   const [userName, setUserName] = useState<string>('Admin');
+  const [userId, setUserId] = useState<string>('');
 
   const [reports, setReports] = useState<Report[]>([]);
+  const [staff, setStaff] = useState<StaffUser[]>([]);
 
-  // Persist active tab across refreshes
   const [activeTab, setActiveTabState] = useState<TabState>(
     () => (sessionStorage.getItem('srms_tab') as TabState) || 'dashboard'
   );
@@ -37,15 +38,14 @@ function App() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterCriticality, setFilterCriticality] = useState('all');
+  const [filterUnit, setFilterUnit] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Detail / Delete modals
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  // Review modals
   const [inspectTarget, setInspectTarget] = useState<Report | null>(null);
   const [showInspectModal, setShowInspectModal] = useState(false);
   const [reviewTarget, setReviewTarget] = useState<Report | null>(null);
@@ -53,42 +53,32 @@ function App() {
   const [rejectTarget, setRejectTarget] = useState<Report | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
 
-  // Emergency modal
-  const [forwardTarget, setForwardTarget] = useState<Report | null>(null);
-  const [showForwardModal, setShowForwardModal] = useState(false);
-  const [archiveTarget, setArchiveTarget] = useState<Report | null>(null);
-  const [showArchiveModal, setShowArchiveModal] = useState(false);
-
-  // Map focus
   const [focusedMapReport, setFocusedMapReport] = useState<Report | null>(null);
   const handleViewOnMap = (report: Report) => {
     setFocusedMapReport(report);
     setActiveTab('map');
   };
 
-  // Login
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  // Restore session from stored token on mount
   useEffect(() => {
     const token = getToken();
     if (!token) return;
     apiFetch('/auth/me').then((data) => {
-      if (!data) return; // 401 → token invalid, stays on login
+      if (!data) return;
       const role = data.role as UserRole;
       setUserRole(role);
       setUserName(data.name || data.email || 'Admin');
+      setUserId(data.id || '');
 
-      // Restore last tab if it's valid for this role, else use role default
       const saved = sessionStorage.getItem('srms_tab') as TabState | null;
       const ROLE_ALLOWED: Record<string, TabState[]> = {
-        super_admin: ['dashboard', 'reports', 'map', 'review', 'emergency'],
-        review:      ['dashboard', 'review', 'map'],
-        emergency:   ['dashboard', 'emergency', 'map'],
+        admin: ['dashboard', 'reports', 'map', 'review'],
+        review_personnel: ['dashboard', 'review', 'map'],
       };
       const allowed = ROLE_ALLOWED[role] ?? ['dashboard'];
-      const defaultTab: TabState = role === 'review' ? 'review' : role === 'emergency' ? 'emergency' : 'dashboard';
+      const defaultTab: TabState = role === 'review_personnel' ? 'review' : 'dashboard';
       const restoredTab = saved && allowed.includes(saved) ? saved : defaultTab;
       setActiveTab(restoredTab);
       setIsAuthenticated(true);
@@ -96,8 +86,77 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) loadReports();
+    if (isAuthenticated) {
+      loadReports();
+      if (userRole === 'admin') loadStaff();
+    }
   }, [isAuthenticated]);
+
+  // Hızlı polling: pending rapor varken AI tamamlanmasını bekler
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const hasPending = reports.some((r) => r.status === 'pending');
+    if (hasPending) {
+      if (!pollRef.current) {
+        pollRef.current = setInterval(loadReports, 8000);
+      }
+    } else {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    }
+    return () => {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    };
+  }, [reports, isAuthenticated]);
+
+  // Yavaş polling: yeni gelen raporları her zaman yakalar
+  const bgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    bgPollRef.current = setInterval(loadReports, 20000);
+    return () => {
+      if (bgPollRef.current) { clearInterval(bgPollRef.current); bgPollRef.current = null; }
+    };
+  }, [isAuthenticated]);
+
+  const loadStaff = async () => {
+    try {
+      const data = await fetchStaff();
+      if (data) setStaff(data);
+    } catch (err) {
+      console.error('Personel yüklenemedi:', err);
+    }
+  };
+
+  const handleAddStaff = async (data: { name: string; email: string; password: string; role: string }) => {
+    try {
+      const user = await createStaff(data);
+      if (user) setStaff((prev) => [user, ...prev]);
+    } catch (err) {
+      console.error('Personel eklenemedi:', err);
+    }
+  };
+
+  const handleToggleActive = async (id: string, isActive: boolean) => {
+    try {
+      await setStaffActive(id, isActive);
+      setStaff((prev) => prev.map((u) => u.id === id ? { ...u, isActive } : u));
+    } catch (err) {
+      console.error('Durum değiştirilemedi:', err);
+    }
+  };
+
+  const handleDeleteStaff = async (id: string) => {
+    try {
+      await deleteStaff(id);
+      setStaff((prev) => prev.filter((u) => u.id !== id));
+    } catch (err) {
+      console.error('Personel silinemedi:', err);
+    }
+  };
 
   const loadReports = async () => {
     try {
@@ -117,8 +176,8 @@ function App() {
       const role = data.user.role as UserRole;
       setUserRole(role);
       setUserName(data.user.name || data.user.email || 'Admin');
-      if (role === 'review') setActiveTab('review');
-      else if (role === 'emergency') setActiveTab('emergency');
+      setUserId(data.user.id || '');
+      if (role === 'review_personnel') setActiveTab('review');
       else setActiveTab('dashboard');
       setIsAuthenticated(true);
     } catch (err: unknown) {
@@ -133,16 +192,26 @@ function App() {
     sessionStorage.removeItem('srms_tab');
     sessionStorage.removeItem('rq_confidence');
     sessionStorage.removeItem('rq_category');
-    sessionStorage.removeItem('em_criticality');
     setIsAuthenticated(false);
   };
 
-  // --- Mevcut report güncelleme yardımcısı ---
   const patchReport = (id: string, updates: Partial<Report>) => {
     setReports((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
   };
 
-  // --- Sil ---
+  const handleChangeStatus = async (id: string, status: 'in_review' | 'in_progress' | 'resolved', note?: string) => {
+    try {
+      await changeReportStatus(id, status, note);
+      patchReport(id, {
+        status,
+        ...(status === 'in_review' ? { reviewStatus: null, rejectReason: null } : {}),
+        ...(note !== undefined ? { resolution: note } : {}),
+      });
+    } catch (err) {
+      console.error('Durum değiştirilemedi:', err);
+    }
+  };
+
   const handleDeleteConfirm = async (id: string) => {
     try {
       await apiFetch(`/reports/${id}`, { method: 'DELETE' });
@@ -154,27 +223,24 @@ function App() {
     }
   };
 
-  // --- İnceleme: Onayla ---
   const handleApprove = async (id: string) => {
     try {
       await apiFetch(`/reports/${id}/review`, {
         method: 'PATCH',
         body: JSON.stringify({ reviewStatus: 'approved' }),
       });
-      patchReport(id, { reviewStatus: 'approved' });
+      patchReport(id, { reviewStatus: 'approved', status: 'in_progress', resolution: '' });
     } catch (err) {
       console.error('Onaylama başarısız:', err);
     }
   };
 
-  // --- İnceleme: Düzelt ---
-  const handleCorrectSave = async (id: string, aiCategory: string, aiPriority: string, aiUnit: string) => {
+  const handleCorrectSave = async (id: string, aiCategory: string, aiPriority: string, aiUnit: string, note?: string) => {
     try {
       await apiFetch(`/reports/${id}/review`, {
         method: 'PATCH',
-        body: JSON.stringify({ reviewStatus: 'corrected', aiCategory, aiPriority, aiUnit }),
+        body: JSON.stringify({ reviewStatus: 'corrected', aiCategory, aiPriority, aiUnit, ...(note ? { staffNote: note } : {}) }),
       });
-      // Lokal state güncelle
       const updated = await apiFetch(`/reports/${id}`);
       if (updated) patchReport(id, mapReport(updated));
       else patchReport(id, { reviewStatus: 'corrected', category: aiCategory, aiUnit });
@@ -186,38 +252,18 @@ function App() {
     }
   };
 
-  // --- İnceleme: Reddet ---
   const handleRejectConfirm = async (id: string, reason: string) => {
     try {
       await apiFetch(`/reports/${id}/review`, {
         method: 'PATCH',
         body: JSON.stringify({ reviewStatus: 'rejected', rejectReason: reason }),
       });
-      patchReport(id, { reviewStatus: 'rejected', rejectReason: reason });
+      patchReport(id, { reviewStatus: 'rejected', rejectReason: reason, status: 'rejected', resolution: '' });
     } catch (err) {
       console.error('Reddetme başarısız:', err);
     } finally {
       setShowRejectModal(false);
       setRejectTarget(null);
-    }
-  };
-
-  // --- Acil: İlet ---
-  const handleForwardSave = async (id: string, forwardStatus: string, forwardNote: string) => {
-    try {
-      await apiFetch(`/reports/${id}/forward`, {
-        method: 'PATCH',
-        body: JSON.stringify({ forwardStatus, forwardNote }),
-      });
-      patchReport(id, {
-        forwardStatus: forwardStatus as Report['forwardStatus'],
-        forwardNote,
-      });
-    } catch (err) {
-      console.error('İletim başarısız:', err);
-    } finally {
-      setShowForwardModal(false);
-      setForwardTarget(null);
     }
   };
 
@@ -233,21 +279,12 @@ function App() {
 
   const selectedReport = reports.find((r) => r.id === selectedReportId) ?? null;
   const deleteReport = reports.find((r) => r.id === deleteTargetId) ?? null;
-
-  const reviewCount = reports.filter((r) => r.reviewStatus === 'pending').length;
-  const emergencyCount = reports.filter(
-    (r) =>
-      (r.criticality === 'kritik' || r.criticality === 'yuksek') &&
-      r.reviewStatus !== 'pending' &&
-      r.reviewStatus !== 'rejected' &&
-      r.forwardStatus !== 'completed'
-  ).length;
+  const reviewCount = reports.filter((r) => r.status === 'in_review').length;
 
   return (
     <>
       <Topbar
         reviewCount={reviewCount}
-        emergencyCount={emergencyCount}
         role={userRole}
         userName={userName}
         onLogout={handleLogout}
@@ -257,7 +294,6 @@ function App() {
         onTabChange={setActiveTab}
         role={userRole}
         reviewCount={reviewCount}
-        emergencyCount={emergencyCount}
       />
 
       <div className="main">
@@ -269,8 +305,7 @@ function App() {
             onInspect={(r) => { setInspectTarget(r); setShowInspectModal(true); }}
             onTabChange={setActiveTab}
             onApprove={handleApprove}
-            onReject={(r) => { setRejectTarget(r); setShowRejectModal(true); }}
-            onForward={(r) => { setForwardTarget(r); setShowForwardModal(true); }}
+            onReject={(r) => { setInspectTarget(r); setRejectTarget(r); setShowRejectModal(true); }}
           />
         )}
 
@@ -281,6 +316,7 @@ function App() {
             filterStatus={filterStatus} setFilterStatus={setFilterStatus}
             filterCategory={filterCategory} setFilterCategory={setFilterCategory}
             filterCriticality={filterCriticality} setFilterCriticality={setFilterCriticality}
+            filterUnit={filterUnit} setFilterUnit={setFilterUnit}
             searchQuery={searchQuery} setSearchQuery={setSearchQuery}
             onView={(id) => { setSelectedReportId(id); setShowDetailModal(true); }}
             onDelete={(id) => { setDeleteTargetId(id); setShowDeleteModal(true); }}
@@ -292,19 +328,19 @@ function App() {
             reports={reports}
             role={userRole}
             onApprove={handleApprove}
-            onCorrect={(r) => { setReviewTarget(r); setShowReviewModal(true); }}
-            onReject={(r) => { setRejectTarget(r); setShowRejectModal(true); }}
+            onCorrect={(r) => { setInspectTarget(r); setReviewTarget(r); setShowReviewModal(true); }}
+            onReject={(r) => { setInspectTarget(r); setRejectTarget(r); setShowRejectModal(true); }}
             onViewOnMap={handleViewOnMap}
           />
         )}
 
-        {activeTab === 'emergency' && (
-          <EmergencyReports
-            reports={reports}
-            role={userRole}
-            onForward={(r) => { setForwardTarget(r); setShowForwardModal(true); }}
-            onDelete={(id) => { setDeleteTargetId(id); setShowDeleteModal(true); }}
-            onViewArchive={(r) => { setArchiveTarget(r); setShowArchiveModal(true); }}
+        {activeTab === 'personnel' && (
+          <PersonnelPanel
+            staff={staff}
+            currentUserId={userId}
+            onAdd={handleAddStaff}
+            onToggleActive={handleToggleActive}
+            onDelete={handleDeleteStaff}
           />
         )}
 
@@ -313,14 +349,8 @@ function App() {
             reports={reports}
             focusReport={focusedMapReport}
             onReportClick={(r) => {
-              if (userRole === 'review') {
+              if (r.status === 'in_review') {
                 setInspectTarget(r); setShowInspectModal(true);
-              } else if (userRole === 'emergency') {
-                if (r.forwardStatus === 'completed') {
-                  setArchiveTarget(r); setShowArchiveModal(true);
-                } else {
-                  setForwardTarget(r); setShowForwardModal(true);
-                }
               } else {
                 setSelectedReportId(r.id); setShowDetailModal(true);
               }
@@ -329,12 +359,14 @@ function App() {
         )}
       </div>
 
-      {/* Mevcut modaller */}
       {showDetailModal && selectedReport && (
         <DetailModal
           report={selectedReport}
+          role={userRole}
           onClose={() => setShowDetailModal(false)}
           onViewOnMap={(r) => { setShowDetailModal(false); handleViewOnMap(r); }}
+          onChangeStatus={handleChangeStatus}
+          onReject={(r) => { setShowDetailModal(false); setRejectTarget(r); setShowRejectModal(true); }}
         />
       )}
       {showDeleteModal && deleteReport && (
@@ -344,48 +376,31 @@ function App() {
           onConfirm={handleDeleteConfirm}
         />
       )}
-
-      {/* Yeni modaller */}
       {showInspectModal && inspectTarget && (
         <InspectionModal
           report={inspectTarget}
           role={userRole}
           onClose={() => { setShowInspectModal(false); setInspectTarget(null); }}
           onApprove={(id) => { handleApprove(id); setShowInspectModal(false); setInspectTarget(null); }}
-          onCorrect={(r) => { setShowInspectModal(false); setInspectTarget(null); setReviewTarget(r); setShowReviewModal(true); }}
-          onReject={(r) => { setShowInspectModal(false); setInspectTarget(null); setRejectTarget(r); setShowRejectModal(true); }}
+          onCorrect={(r) => { setShowInspectModal(false); setReviewTarget(r); setShowReviewModal(true); }}
+          onReject={(r) => { setShowInspectModal(false); setRejectTarget(r); setShowRejectModal(true); }}
           onViewOnMap={(r) => { setShowInspectModal(false); setInspectTarget(null); handleViewOnMap(r); }}
         />
       )}
       {showReviewModal && reviewTarget && (
         <ReviewModal
           report={reviewTarget}
-          onClose={() => { setShowReviewModal(false); setReviewTarget(null); }}
+          onClose={() => { setShowReviewModal(false); setReviewTarget(null); setInspectTarget(null); }}
+          onBack={inspectTarget ? () => { setShowReviewModal(false); setReviewTarget(null); setShowInspectModal(true); } : undefined}
           onSave={handleCorrectSave}
         />
       )}
       {showRejectModal && rejectTarget && (
         <RejectModal
           report={rejectTarget}
-          onClose={() => { setShowRejectModal(false); setRejectTarget(null); }}
+          onClose={() => { setShowRejectModal(false); setRejectTarget(null); setInspectTarget(null); }}
+          onBack={inspectTarget ? () => { setShowRejectModal(false); setRejectTarget(null); setShowInspectModal(true); } : undefined}
           onConfirm={handleRejectConfirm}
-        />
-      )}
-      {showForwardModal && forwardTarget && (
-        <ForwardModal
-          report={forwardTarget}
-          onClose={() => { setShowForwardModal(false); setForwardTarget(null); }}
-          onSave={handleForwardSave}
-          onViewOnMap={(r) => { setShowForwardModal(false); setForwardTarget(null); handleViewOnMap(r); }}
-        />
-      )}
-      {showArchiveModal && archiveTarget && (
-        <ForwardModal
-          report={archiveTarget}
-          onClose={() => { setShowArchiveModal(false); setArchiveTarget(null); }}
-          onSave={() => {}}
-          onViewOnMap={(r) => { setShowArchiveModal(false); setArchiveTarget(null); handleViewOnMap(r); }}
-          readOnly
         />
       )}
     </>
