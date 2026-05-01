@@ -23,6 +23,7 @@ interface ReportsListProps {
   setSearchQuery: (val: string) => void;
   onView: (id: string) => void;
   onDelete: (id: string) => void;
+  onRetry: (id: string) => void;
 }
 
 export const ReportsList: React.FC<ReportsListProps> = ({
@@ -40,6 +41,7 @@ export const ReportsList: React.FC<ReportsListProps> = ({
   setSearchQuery,
   onView,
   onDelete,
+  onRetry,
 }) => {
   const [sortKey, setSortKey] = useState<SortKey>('timestamp');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -189,14 +191,14 @@ export const ReportsList: React.FC<ReportsListProps> = ({
                       />
                     </td>
                     <td>
-                      <div className="report-desc" style={!r.description ? { color: 'var(--text-tertiary)', fontStyle: 'italic' } : undefined}>
-                        {r.description || 'Analiz bekleniyor...'}
+                      <div className="report-desc" style={!r.description ? { color: r.aiError ? 'var(--danger, #dc2626)' : 'var(--text-tertiary)', fontStyle: 'italic' } : undefined}>
+                        {r.description || (r.aiError ? 'Analiz başarısız' : 'Analiz bekleniyor...')}
                       </div>
                       <div className="report-address">
                         {r.address && <span>📍 {r.address}</span>}
                         {r.aiUnit && <span style={{ marginLeft: r.address ? '8px' : '0' }}>🏢 {r.aiUnit}</span>}
                       </div>
-                      {r.resolution && <div className="resolution-note">✅ {r.resolution}</div>}
+                      {r.resolution && <div className="resolution-note">✎ {r.resolution}</div>}
                     </td>
                     <td>
                       <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '12px' }}>
@@ -218,6 +220,16 @@ export const ReportsList: React.FC<ReportsListProps> = ({
                     {role === 'admin' && (
                       <td onClick={(e) => e.stopPropagation()}>
                         <div className="actions-cell">
+                          {r.aiError && (
+                            <button
+                              className="btn"
+                              onClick={() => onRetry(r.id)}
+                              title="Yeniden analiz et"
+                              style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', fontSize: '12px', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
+                            >
+                              ↻ Yeniden Analiz
+                            </button>
+                          )}
                           <button className="btn btn-delete" onClick={() => onDelete(r.id)} title="Sil">✕</button>
                         </div>
                       </td>

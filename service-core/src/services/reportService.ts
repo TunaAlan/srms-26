@@ -47,7 +47,14 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
   });
 
   // Run AI analysis in the background — do not block the response
-  analyzeImage(input.imagePath)
+  runAiAnalysis(report);
+
+  return report;
+}
+
+async function runAiAnalysis(report: Report): Promise<void> {
+  await report.update({ aiError: false, status: 'pending' });
+  analyzeImage(report.imagePath)
     .then((ai) => {
       if (ai.rejected) {
         return report.update({
@@ -60,6 +67,7 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
           rejectReason: ai.rejectReason,
           reviewStatus: 'rejected',
           status: 'rejected',
+          aiError: false,
         });
       }
       return report.update({
@@ -70,21 +78,22 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
         aiConfidence: ai.confidence,
         aiDescription: ai.description,
         status: 'in_review',
+        aiError: false,
       });
     })
     .catch((err) => {
-      console.error('AI analysis error:', err);
-      report.update({
-        aiCategory: '',
-        aiPriority: '',
-        aiPriorityLabel: '',
-        aiUnit: '',
-        aiConfidence: 0,
-        aiDescription: '',
-        status: 'pending',
-      }).catch(e => console.error('Fallback update failed:', e));
+      console.error('AI retry error:', err);
+      report.update({ aiError: true, status: 'pending' })
+        .catch(e => console.error('Fallback update failed:', e));
     });
+}
 
+export async function retryAnalysis(id: string): Promise<Report> {
+  const report = await getReportById(id);
+  if (report.status !== 'pending') {
+    throw Object.assign(new Error('Only pending reports can be retried'), { statusCode: 400 });
+  }
+  runAiAnalysis(report);
   return report;
 }
 
@@ -163,8 +172,9 @@ export async function changeStatus(id: string, status: 'in_review' | 'in_progres
   if (status === 'in_review') {
     updates.reviewStatus = null;
     updates.rejectReason = null;
+    updates.staffNote = note ?? null;
   }
-  if (note !== undefined) updates.staffNote = note;
+  if (status !== 'in_review' && note !== undefined) updates.staffNote = note;
   await report.update(updates);
   return report;
 }

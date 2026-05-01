@@ -218,6 +218,44 @@ DELETE /api/users/:id
 
 ---
 
+## Module Boundaries
+
+Each module exists for a distinct reason — not because of UI differences alone, but because of runtime and deployment context:
+
+| Module | Runtime | Deploy target | Audience |
+|---|---|---|---|
+| `client-admin` | Browser | nginx container | Municipal staff |
+| `client-mobile` | iOS / Android (React Native) | Expo Go / EAS Build | Citizens |
+| `service-core` | Node.js | Express container | — |
+
+A module is justified when it can be removed without breaking the others, and when it has a different deployment target or runtime. All three modules pass this test — `client-admin` and `client-mobile` share no code and run in entirely different environments. The module boundary here is not an arbitrary folder split; it reflects a real runtime boundary.
+
+---
+
+## Versioning
+
+This monorepo uses **parallel versioning** — all modules (`client-admin`, `client-mobile`, `service-core`) share a single version number at all times.
+
+### Rationale
+
+The three modules are tightly coupled by design:
+
+- `client-admin` and `client-mobile` both consume the same `service-core` REST API. A breaking change in the API contract (status enum, field rename, endpoint restructure) requires simultaneous updates across all three modules.
+- There are no independent release cycles. Features and fixes ship together as a single deployable unit via `docker-compose`.
+- A single version tag on the monorepo unambiguously identifies the state of the entire system — there is no "which mobile version is compatible with which admin version" problem.
+
+This matches the **fixed/locked mode** recommended for monorepos where modules evolve together (as opposed to independent mode, which is appropriate when teams and release cadences diverge).
+
+### Bumping the version
+
+```bash
+./scripts/version.sh <version>
+```
+
+This updates `package.json` in all three modules and `app.json` in `client-mobile` in one step. Run from the repo root.
+
+---
+
 ## License
 
 Internal use only.

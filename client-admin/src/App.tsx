@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { apiFetch, login, logout as apiLogout, getToken, changeReportStatus, fetchStaff, createStaff, setStaffActive, deleteStaff } from './api';
+import { apiFetch, login, logout as apiLogout, getToken, changeReportStatus, retryReportAnalysis, fetchStaff, createStaff, setStaffActive, deleteStaff } from './api';
 import type { Report, StaffUser, TabState, UserRole } from './types';
 // StaffUser used via useState<StaffUser[]>
 import { mapReport } from './utils';
@@ -204,11 +204,20 @@ function App() {
       await changeReportStatus(id, status, note);
       patchReport(id, {
         status,
-        ...(status === 'in_review' ? { reviewStatus: null, rejectReason: null } : {}),
-        ...(note !== undefined ? { resolution: note } : {}),
+        ...(status === 'in_review' ? { reviewStatus: null, rejectReason: null, resolution: note ?? '' } : {}),
+        ...(status !== 'in_review' && note !== undefined ? { resolution: note } : {}),
       });
     } catch (err) {
       console.error('Durum değiştirilemedi:', err);
+    }
+  };
+
+  const handleRetryAnalysis = async (id: string) => {
+    try {
+      await retryReportAnalysis(id);
+      patchReport(id, { aiError: false, status: 'pending' });
+    } catch (err) {
+      console.error('Yeniden analiz başlatılamadı:', err);
     }
   };
 
@@ -320,6 +329,7 @@ function App() {
             searchQuery={searchQuery} setSearchQuery={setSearchQuery}
             onView={(id) => { setSelectedReportId(id); setShowDetailModal(true); }}
             onDelete={(id) => { setDeleteTargetId(id); setShowDeleteModal(true); }}
+            onRetry={handleRetryAnalysis}
           />
         )}
 

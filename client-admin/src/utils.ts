@@ -93,7 +93,7 @@ export function mapReport(r: any): any {
   return {
     id: r.id,
     image: filename ? `/api/reports/images/${filename}` : null,
-    description: r.aiDescription || '',
+    description: r.aiDescription || r.rejectReason || '',
     userDescription: r.userDescription || '',
     category: r.aiCategory || '',
     categoryLabel: r.aiCategory ? (CATEGORY_LABEL_MAP[r.aiCategory] || r.aiCategory) : 'Analiz Bekleniyor',
@@ -106,6 +106,7 @@ export function mapReport(r: any): any {
     status: _STATUS_TO_UI[r.status] || 'pending',
     criticality: mapPriority(r.aiPriority),
     resolution: r.staffNote || '',
+    aiError: r.aiError ?? false,
     reviewStatus: r.reviewStatus || null,
     rejectReason: r.rejectReason || null,
     reviewedByName: r.reviewer?.name ?? null,

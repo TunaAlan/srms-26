@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.6.1] - 2026-05-01
+
+### Service Core (Backend)
+
+#### Added
+- `aiError` boolean field on `Report` model — set to `true` when AI analysis fails, cleared on success or retry.
+- `POST /reports/:id/retry` endpoint (admin only) — triggers a new AI analysis attempt for reports stuck in `pending` with `aiError: true`.
+- `runAiAnalysis` extracted as a shared helper used by both `createReport` and `retryAnalysis` — eliminates duplicated AI callback logic.
+- `staffNote` is now explicitly cleared (`null`) when a report is sent back to `in_review` without a note — previously the old note from a prior review cycle would persist.
+
+---
+
+### Client Admin
+
+#### Added
+- Review queue: staff note shown as an amber banner beneath the description for reports that have been re-opened by admin.
+- Reports list: "Analiz başarısız" label shown in red when `aiError` is true, replacing the misleading "Analiz bekleniyor..." label.
+- Reports list: "↻ Yeniden Analiz" button shown next to the delete button for failed reports — triggers `POST /reports/:id/retry`.
+
+#### Fixed
+- Review status badge and reviewer name are now displayed inline — previously the reviewer name rendered below the badge, making the info card disproportionately tall.
+- `rejectReason` shown as description for troll-rejected reports — previously "Analiz bekleniyor..." was shown because `aiDescription` was empty.
+
+---
+
+### Client Mobile
+
+#### Fixed
+- Keyboard was covering the description `TextInput` on the report submission screen — wrapped in `KeyboardAvoidingView` with platform-aware behavior (`padding` on iOS, `height` on Android).
+
+---
+
 ## [0.6.0] - 2026-05-01
 
 ### AI Service

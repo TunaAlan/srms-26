@@ -48,6 +48,9 @@ router.patch('/:id/review', authenticate, authorize('admin', 'review_personnel')
 // Admin: manually change report status
 router.patch('/:id/status', authenticate, authorize('admin'), reportController.changeStatus);
 
+// Admin: retry AI analysis for a failed report
+router.post('/:id/retry', authenticate, authorize('admin'), reportController.retryAnalysis);
+
 // Admin: delete a report
 router.delete('/:id', authenticate, authorize('admin'), reportController.deleteReport);
 

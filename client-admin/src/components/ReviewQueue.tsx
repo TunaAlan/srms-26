@@ -241,6 +241,11 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
                       {r.address && <span>📍 {r.address}</span>}
                       {r.aiUnit && <span style={{ marginLeft: r.address ? '8px' : '0' }}>🏢 {r.aiUnit}</span>}
                     </div>
+                    {r.resolution && (
+                      <div style={{ marginTop: '6px', padding: '4px 8px', background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '3px solid #f59e0b', borderRadius: '4px', fontSize: '11px', color: '#92400e' }}>
+                        ✎ {r.resolution}
+                      </div>
+                    )}
                   </td>
                   <td>
                     <div style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '12px' }}>
