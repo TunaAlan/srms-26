@@ -145,7 +145,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </td>
                         <td>
                           <div className="report-desc" style={!r.description ? { color: 'var(--text-tertiary)', fontStyle: 'italic' } : undefined}>
-                            {r.description || 'Analiz bekleniyor...'}
+                            {r.description || (r.aiError ? 'Analiz başarısız' : 'Analiz bekleniyor...')}
                           </div>
                           <div className="report-address">
                             {r.address && <span>📍 {r.address}</span>}
@@ -277,7 +277,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </td>
                         <td>
                           <div className="report-desc" style={!r.description ? { color: 'var(--text-tertiary)', fontStyle: 'italic' } : undefined}>
-                            {r.description || 'Analiz bekleniyor...'}
+                            {r.description || (r.aiError ? 'Analiz başarısız' : 'Analiz bekleniyor...')}
                           </div>
                           <div className="report-address">
                             {r.address && <span>📍 {r.address}</span>}
