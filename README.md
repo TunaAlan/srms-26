@@ -218,6 +218,30 @@ DELETE /api/users/:id
 
 ---
 
+## Versioning
+
+This monorepo uses **parallel versioning** — all modules (`client-admin`, `client-mobile`, `service-core`) share a single version number at all times.
+
+### Rationale
+
+The three modules are tightly coupled by design:
+
+- `client-admin` and `client-mobile` both consume the same `service-core` REST API. A breaking change in the API contract (status enum, field rename, endpoint restructure) requires simultaneous updates across all three modules.
+- There are no independent release cycles. Features and fixes ship together as a single deployable unit via `docker-compose`.
+- A single version tag on the monorepo unambiguously identifies the state of the entire system — there is no "which mobile version is compatible with which admin version" problem.
+
+This matches the **fixed/locked mode** recommended for monorepos where modules evolve together (as opposed to independent mode, which is appropriate when teams and release cadences diverge).
+
+### Bumping the version
+
+```bash
+./scripts/version.sh <version>
+```
+
+This updates `package.json` in all three modules and `app.json` in `client-mobile` in one step. Run from the repo root.
+
+---
+
 ## License
 
 Internal use only.
