@@ -1,5 +1,13 @@
+import { unlink } from 'fs/promises';
 import Report from '../models/Report.js';
+import User from '../models/User.js';
 import { analyzeImage } from './aiService.js';
+
+const REVIEWER_INCLUDE = {
+  model: User,
+  as: 'reviewer',
+  attributes: ['id', 'name'],
+};
 
 interface CreateReportInput {
   userId: string;
@@ -17,11 +25,7 @@ interface ReviewInput {
   aiCategory?: string;
   aiPriority?: string;
   aiUnit?: string;
-}
-
-interface ForwardInput {
-  forwardStatus: 'forwarded' | 'completed';
-  forwardNote?: string;
+  reviewedBy?: string;
 }
 
 interface ListFilter {
@@ -45,6 +49,19 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
   // Run AI analysis in the background — do not block the response
   analyzeImage(input.imagePath)
     .then((ai) => {
+      if (ai.rejected) {
+        return report.update({
+          aiCategory: 'irrelevant',
+          aiPriority: '0',
+          aiPriorityLabel: 'Irrelevant',
+          aiUnit: '-',
+          aiConfidence: 0,
+          aiDescription: '',
+          rejectReason: ai.rejectReason,
+          reviewStatus: 'rejected',
+          status: 'rejected',
+        });
+      }
       return report.update({
         aiCategory: ai.category,
         aiPriority: String(ai.priority),
@@ -52,20 +69,19 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
         aiUnit: ai.department,
         aiConfidence: ai.confidence,
         aiDescription: ai.description,
-        reviewStatus: 'pending',
+        status: 'in_review',
       });
     })
     .catch((err) => {
       console.error('AI analysis error:', err);
-      // Set a fallback state to prevent the report from remaining in an invisible zombie state if the AI analysis fails
       report.update({
-        aiCategory: 'unclassified',
-        aiPriority: '0',
-        aiPriorityLabel: 'Service Error',
-        aiUnit: '-',
+        aiCategory: '',
+        aiPriority: '',
+        aiPriorityLabel: '',
+        aiUnit: '',
         aiConfidence: 0,
-        aiDescription: 'Error occurred during AI analysis.',
-        reviewStatus: 'pending',
+        aiDescription: '',
+        status: 'pending',
       }).catch(e => console.error('Fallback update failed:', e));
     });
 
@@ -90,12 +106,13 @@ export async function getAllReports(filter: ListFilter): Promise<Report[]> {
 
   return Report.findAll({
     where,
+    include: [REVIEWER_INCLUDE],
     order: [['createdAt', 'DESC']],
   });
 }
 
 export async function getReportById(id: string): Promise<Report> {
-  const report = await Report.findByPk(id);
+  const report = await Report.findByPk(id, { include: [REVIEWER_INCLUDE] });
   if (!report) {
     throw Object.assign(new Error('Report not found'), { statusCode: 404 });
   }
@@ -112,31 +129,49 @@ export async function reviewReport(id: string, input: ReviewInput): Promise<Repo
   if (input.aiCategory !== undefined) updates.aiCategory = input.aiCategory;
   if (input.aiPriority !== undefined) updates.aiPriority = input.aiPriority;
   if (input.aiUnit !== undefined) updates.aiUnit = input.aiUnit;
+  if (input.reviewedBy !== undefined) updates.reviewedBy = input.reviewedBy;
 
   const rs = input.reviewStatus;
   if (rs === 'rejected') updates.status = 'rejected';
   else if (rs === 'approved' || rs === 'corrected') updates.status = 'in_progress';
-  else if (rs === 'pending') updates.status = 'pending';
+
+  if (rs === 'approved' || rs === 'corrected' || rs === 'rejected') {
+    if (input.staffNote === undefined) updates.staffNote = null;
+  }
 
   await report.update(updates);
   return report;
 }
 
-export async function forwardReport(id: string, input: ForwardInput): Promise<Report> {
+
+
+export async function changeStatus(id: string, status: 'in_review' | 'in_progress' | 'resolved', note?: string): Promise<Report> {
   const report = await getReportById(id);
-  const updates: Record<string, unknown> = {
-    forwardStatus: input.forwardStatus,
+  const allowed: Record<string, string[]> = {
+    pending:     ['in_review'],
+    in_review:   ['in_progress'],
+    in_progress: ['resolved', 'in_review'],
+    rejected:    ['in_review'],
   };
-
-  if (input.forwardNote !== undefined) updates.forwardNote = input.forwardNote;
-
-  updates.status = input.forwardStatus === 'completed' ? 'resolved' : 'in_progress';
-
+  if (!allowed[report.status]?.includes(status)) {
+    throw Object.assign(
+      new Error(`Cannot transition from '${report.status}' to '${status}'`),
+      { statusCode: 400 }
+    );
+  }
+  const updates: Record<string, unknown> = { status };
+  if (status === 'in_review') {
+    updates.reviewStatus = null;
+    updates.rejectReason = null;
+  }
+  if (note !== undefined) updates.staffNote = note;
   await report.update(updates);
   return report;
 }
 
 export async function deleteReport(id: string): Promise<void> {
   const report = await getReportById(id);
+  const imagePath = report.imagePath;
   await report.destroy();
+  await unlink(imagePath).catch(() => {});
 }

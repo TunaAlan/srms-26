@@ -101,6 +101,21 @@ export const getReportById = async (req: Request, res: Response, next: NextFunct
 
 
 //ADMIN ONLY
+export const changeStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { status, note } = req.body;
+    if (!['in_review', 'in_progress', 'resolved'].includes(status)) {
+      res.status(400).json({ message: 'Invalid status value' });
+      return;
+    }
+    const report = await reportService.changeStatus(String(req.params.id), status, note);
+    res.json(report);
+  } catch (err) {
+    next(err);
+  }
+};
+
+//ADMIN ONLY
 export const deleteReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     await reportService.deleteReport(String(req.params.id));
@@ -123,6 +138,7 @@ export const reviewReport = async (req: Request, res: Response, next: NextFuncti
 
     const report = await reportService.reviewReport(String(req.params.id), {
       staffNote, reviewStatus, rejectReason, aiCategory, aiPriority, aiUnit,
+      reviewedBy: req.user!.id,
     });
     res.json(report);
   } catch (err) {
@@ -130,21 +146,3 @@ export const reviewReport = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-//EMERGENCY ROLE ONLY
-export const forwardReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { forwardStatus, forwardNote } = req.body;
-
-    if (!forwardStatus || !['forwarded', 'acknowledged', 'in_progress', 'completed'].includes(forwardStatus)) {
-      res.status(400).json({ message: 'Invalid forwardStatus value' });
-      return;
-    }
-
-    const report = await reportService.forwardReport(String(req.params.id), {
-      forwardStatus, forwardNote,
-    });
-    res.json(report);
-  } catch (err) {
-    next(err);
-  }
-};
