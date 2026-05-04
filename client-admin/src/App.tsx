@@ -314,6 +314,7 @@ function App() {
             onInspect={(r) => { setInspectTarget(r); setShowInspectModal(true); }}
             onTabChange={setActiveTab}
             onApprove={handleApprove}
+            onCorrect={(r) => { setInspectTarget(r); setReviewTarget(r); setShowReviewModal(true); }}
             onReject={(r) => { setInspectTarget(r); setRejectTarget(r); setShowRejectModal(true); }}
           />
         )}
@@ -376,7 +377,6 @@ function App() {
           onClose={() => setShowDetailModal(false)}
           onViewOnMap={(r) => { setShowDetailModal(false); handleViewOnMap(r); }}
           onChangeStatus={handleChangeStatus}
-          onReject={(r) => { setShowDetailModal(false); setRejectTarget(r); setShowRejectModal(true); }}
         />
       )}
       {showDeleteModal && deleteReport && (

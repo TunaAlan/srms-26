@@ -9,6 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [Unreleased]
+
+### Service Core (Backend)
+
+#### Fixed
+- `GET /reports` now enforces role-based filtering for `review_personnel` — returns only `status=in_review` reports plus reports where `reviewedBy=req.user.id`. Previously the backend returned all reports regardless of role, relying solely on the UI to restrict the view (security through obscurity). The constraint is now enforced at the data layer.
+- `ListFilter` extended with `reviewedBy` field; `getAllReports` uses `Op.or` to combine queue and personal history in a single query.
+
+---
+
+### Client Admin
+
+#### Changed
+- Review personnel dashboard KPI cards updated: "Onaylandı / Düzeltildi / Reddedildi" replaced with "Onayladıklarım / Düzelttiklerim / Reddettiklerim" — counts now reflect the reviewer's own decisions (via `reviewedBy` filtered data) rather than system-wide totals, which would always show 0 after the backend role filter was applied.
+
+#### Fixed
+- "Düzelt" button added to reviewer dashboard priority table — previously reviewers could only approve or reject from the dashboard; correction required navigating to the review queue. `onCorrect` prop added to `Dashboard` component and wired in `App.tsx`.
+- Priority table header now shows the real `reviewPending` count instead of the capped slice length — table shows top 5 by criticality, with "ilk 5 gösteriliyor" note when there are more.
+- Admin dashboard KPI grid expanded from 5 to 7 cards: `in_review` (İncelemede) and `rejected` (Reddedildi) statuses were previously invisible.
+- Critical count now excludes `resolved` and `rejected` reports — previously all critical reports regardless of status were counted, inflating the metric.
+- Category distribution percentage now calculated against `categoryTotal` (non-pending reports) instead of `total` — previously `pending` reports were excluded from the chart but included in the denominator, causing percentages to not sum to 100%.
+- İncelemede and Reddedildi KPI cards corrected from `borderTop` to `borderLeft` to match the visual style of all other stat cards.
+- Kritik (Aktif) KPI label renamed to "Kritik Öncelikli" — the previous label implied a status rather than a priority level.
+- `in_progress` reports no longer show a "Reddet" button in DetailModal — rejection at this stage is incorrect since the report has already passed reviewer approval. Admin should use "Tekrar İncelemeye Al" instead.
+- `rejectReason` now shown as a red banner with ✕ icon in the reports list for `rejected` reports — previously only visible inside the detail modal, requiring admin to open each rejected report individually.
+- `resolution-note` banner color now context-aware: amber for admin re-open notes (`status=in_review` + `staffNoteBy` set), green for all other staff notes (reviewer corrections, resolution notes). Previously all notes were the same color regardless of context.
+
+#### Added
+- `staffNoteBy` UUID field added to `Report` model — stores the user ID of whoever wrote the `staffNote`. Set server-side in both `reviewReport` (reviewer corrections) and `changeStatus` (admin re-open with note).
+- `staffNoteAuthor` JOIN added (`Report.belongsTo(User, { as: 'staffNoteAuthor' })`) — `staffNoteAuthorName` and `staffNoteAuthorRole` returned in `GET /reports` and `GET /reports/:id`.
+- `reportNumber` INTEGER field added to `Report` model — unique, human-readable report identifier. Assigned via `MAX(reportNumber) + 1` in `createReport` (PostgreSQL `SERIAL` type rejected by `sync({ alter: true })` on existing tables). Existing reports retain `null`; only new reports receive a number.
+- Note banners show directional label: `↩ Admin → İnceleme:` when `staffNoteBy` is set and status is `in_review`, otherwise `✎` for reviewer/resolution notes. Visible in Reports list and Review Queue.
+- `InspectionModal` and `DetailModal` "PERSONEL NOTU" section shows note author `👤 İsim Soyisim (Rol)` — previously anonymous. Color context-aware: amber for admin re-open notes, green for reviewer/resolution notes.
+- `DetailModal` and `InspectionModal` "RET SEBEBİ" section shows who rejected `👤 İsim Soyisim (Rol)` — via `reviewedByName` and `reviewedByRole` (`role` added to `REVIEWER_INCLUDE` attributes).
+- `#reportNumber` column added to Reports list, Review Queue, Dashboard "Son 5 Rapor" table, `DetailModal` title, and `InspectionModal` title. Shows `—` when null. Search supports `#1042` or `1042` — `#` prefix stripped before matching.
+
+---
+
 ## [0.6.1] - 2026-05-01
 
 ### Service Core (Backend)

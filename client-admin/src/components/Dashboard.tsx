@@ -17,6 +17,7 @@ interface DashboardProps {
   onTabChange?: (tab: TabState) => void;
   role: UserRole;
   onApprove?: (id: string) => void;
+  onCorrect?: (report: Report) => void;
   onReject?: (report: Report) => void;
 }
 
@@ -27,19 +28,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onTabChange,
   role,
   onApprove,
+  onCorrect,
   onReject,
 }) => {
   const total = reports.length;
   const pending = reports.filter((r) => r.status === 'pending').length;
+  const inReview = reports.filter((r) => r.status === 'in_review').length;
   const reviewing = reports.filter((r) => r.status === 'in_progress').length;
   const resolved = reports.filter((r) => r.status === 'resolved').length;
-  const criticalCount = reports.filter((r) => r.criticality === 'kritik').length;
+  const rejected = reports.filter((r) => r.status === 'rejected').length;
+  const criticalCount = reports.filter(
+    (r) => r.criticality === 'kritik' && !['resolved', 'rejected'].includes(r.status)
+  ).length;
 
   // Review stats
   const reviewPending = reports.filter((r) => r.status === 'in_review').length;
-  const reviewApproved = reports.filter((r) => r.reviewStatus === 'approved').length;
-  const reviewCorrected = reports.filter((r) => r.reviewStatus === 'corrected').length;
-  const reviewRejected = reports.filter((r) => r.reviewStatus === 'rejected').length;
+  const reviewApproved = reports.filter((r) => r.reviewStatus === 'approved' && r.status !== 'in_review').length;
+  const reviewCorrected = reports.filter((r) => r.reviewStatus === 'corrected' && r.status !== 'in_review').length;
+  const reviewRejected = reports.filter((r) => r.reviewStatus === 'rejected' && r.status !== 'in_review').length;
   const lowConfidencePending = reports.filter(
     (r) => r.status === 'in_review' && (r.aiConfidence ?? 1) < 0.60
   ).length;
@@ -63,11 +69,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8);
   const maxCount = categoryDist[0]?.[1] ?? 1;
+  const categoryTotal = categoryDist.reduce((sum, [, c]) => sum + c, 0);
 
   const priorityPendingReports = reports
     .filter((r) => r.status === 'in_review')
     .sort((a, b) => (CRIT_ORDER[a.criticality] ?? 9) - (CRIT_ORDER[b.criticality] ?? 9))
-    .slice(0, 8);
+    .slice(0, 5);
 
   const badgeDot = (criticality: string) => {
     if (criticality === 'kritik') return 'var(--critical)';
@@ -81,14 +88,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* ───── ADMIN ───── */}
       {role === 'admin' && (
         <>
-          <div className="stats-grid">
+          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
             <div className="stat-card total">
-              <div className="stat-label">Toplam Rapor</div>
+              <div className="stat-label">Toplam</div>
               <div className="stat-number">{total}</div>
             </div>
             <div className="stat-card pending">
               <div className="stat-label">Beklemede</div>
               <div className="stat-number">{pending}</div>
+            </div>
+            <div className="stat-card" style={{ background: '#f5f3ff', borderLeft: '3px solid #7c3aed' }}>
+              <div className="stat-label" style={{ color: '#7c3aed' }}>İncelemede</div>
+              <div className="stat-number" style={{ color: '#7c3aed' }}>{inReview}</div>
             </div>
             <div className="stat-card reviewing">
               <div className="stat-label">İşlemde</div>
@@ -98,8 +109,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className="stat-label">Çözüldü</div>
               <div className="stat-number">{resolved}</div>
             </div>
+            <div className="stat-card" style={{ background: '#fef2f2', borderLeft: '3px solid #dc2626' }}>
+              <div className="stat-label" style={{ color: '#dc2626' }}>Reddedildi</div>
+              <div className="stat-number" style={{ color: '#dc2626' }}>{rejected}</div>
+            </div>
             <div className="stat-card critical">
-              <div className="stat-label">Kritik</div>
+              <div className="stat-label">Kritik Öncelikli</div>
               <div className="stat-number">{criticalCount}</div>
             </div>
           </div>
@@ -130,6 +145,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <thead>
                     <tr>
                       <th>Fotoğraf</th>
+                      <th style={{ width: '60px' }}>#</th>
                       <th>Açıklama / Konum</th>
                       <th>Kategori</th>
                       <th>Durum</th>
@@ -142,6 +158,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => onViewReport(r.id)}>
                         <td>
                           <img src={r.image || ''} className="report-image" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        </td>
+                        <td style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+                          {r.reportNumber ? `#${r.reportNumber}` : '—'}
                         </td>
                         <td>
                           <div className="report-desc" style={!r.description ? { color: 'var(--text-tertiary)', fontStyle: 'italic' } : undefined}>
@@ -175,7 +194,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <div key={label}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                       <span style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 500 }}>{label}</span>
-                      <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{count} ({Math.round(count / total * 100)}%)</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{count} ({Math.round(count / categoryTotal * 100)}%)</span>
                     </div>
                     <div style={{ height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${(count / maxCount) * 100}%`, background: 'var(--primary)', borderRadius: '3px', transition: 'width 0.3s' }} />
@@ -217,15 +236,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className="stat-number">{reviewPending}</div>
             </div>
             <div className="stat-card resolved">
-              <div className="stat-label">Onaylandı</div>
+              <div className="stat-label">Onayladıklarım</div>
               <div className="stat-number">{reviewApproved}</div>
             </div>
             <div className="stat-card reviewing">
-              <div className="stat-label">Düzeltildi</div>
+              <div className="stat-label">Düzelttiklerim</div>
               <div className="stat-number">{reviewCorrected}</div>
             </div>
             <div className="stat-card critical">
-              <div className="stat-label">Reddedildi</div>
+              <div className="stat-label">Reddettiklerim</div>
               <div className="stat-number">{reviewRejected}</div>
             </div>
           </div>
@@ -254,7 +273,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {priorityPendingReports.length > 0 && (
             <>
               <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px', color: 'var(--text-secondary)' }}>
-                ÖNCELİKLİ BEKLEYEN {priorityPendingReports.length} RAPOR
+                ÖNCELİKLİ BEKLEYEN {reviewPending} RAPOR
+                {reviewPending > 5 && <span style={{ fontSize: '11px', fontWeight: 400, marginLeft: '8px', color: 'var(--text-tertiary)' }}>ilk 5 gösteriliyor</span>}
               </h3>
               <div className="table-container">
                 <table>
@@ -300,6 +320,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <td onClick={(e) => e.stopPropagation()}>
                           <div className="actions-cell">
                             <button className="btn btn-approve" style={{ padding: '5px 10px', fontSize: '12px' }} onClick={() => onApprove?.(r.id)}>✓ Onayla</button>
+                            <button className="btn btn-correct" style={{ padding: '5px 10px', fontSize: '12px' }} onClick={() => onCorrect?.(r)}>✎ Düzelt</button>
                             <button className="btn btn-reject" style={{ padding: '5px 10px', fontSize: '12px' }} onClick={() => onReject?.(r)}>✕ Reddet</button>
                           </div>
                         </td>

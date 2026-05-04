@@ -1,4 +1,5 @@
 import { unlink } from 'fs/promises';
+import { Op, fn, col } from 'sequelize';
 import Report from '../models/Report.js';
 import User from '../models/User.js';
 import { analyzeImage } from './aiService.js';
@@ -6,7 +7,13 @@ import { analyzeImage } from './aiService.js';
 const REVIEWER_INCLUDE = {
   model: User,
   as: 'reviewer',
-  attributes: ['id', 'name'],
+  attributes: ['id', 'name', 'role'],
+};
+
+const STAFF_NOTE_AUTHOR_INCLUDE = {
+  model: User,
+  as: 'staffNoteAuthor',
+  attributes: ['id', 'name', 'role'],
 };
 
 interface CreateReportInput {
@@ -20,6 +27,7 @@ interface CreateReportInput {
 
 interface ReviewInput {
   staffNote?: string;
+  staffNoteBy?: string;
   reviewStatus?: 'approved' | 'corrected' | 'rejected';
   rejectReason?: string;
   aiCategory?: string;
@@ -34,9 +42,16 @@ interface ListFilter {
   unit?: string;
   reviewStatus?: string;
   status?: string;
+  reviewedBy?: string;
 }
 
 export async function createReport(input: CreateReportInput): Promise<Report> {
+  const maxResult = await Report.findOne({
+    attributes: [[fn('MAX', col('reportNumber')), 'maxNum']],
+    raw: true,
+  }) as any;
+  const nextNumber = (maxResult?.maxNum ?? 0) + 1;
+
   const report = await Report.create({
     userId: input.userId,
     imagePath: input.imagePath,
@@ -44,6 +59,7 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
     userCategory: input.userCategory,
     latitude: input.latitude,
     longitude: input.longitude,
+    reportNumber: nextNumber,
   });
 
   // Run AI analysis in the background — do not block the response
@@ -110,18 +126,26 @@ export async function getAllReports(filter: ListFilter): Promise<Report[]> {
   if (filter.category) where.aiCategory = filter.category;
   if (filter.priority) where.aiPriority = filter.priority;
   if (filter.unit) where.aiUnit = filter.unit;
-  if (filter.status) where.status = filter.status;
   if (filter.reviewStatus !== undefined) where.reviewStatus = filter.reviewStatus;
+
+  if (filter.reviewedBy) {
+    where[Op.or as unknown as string] = [
+      { status: filter.status ?? 'in_review' },
+      { reviewedBy: filter.reviewedBy },
+    ];
+  } else if (filter.status) {
+    where.status = filter.status;
+  }
 
   return Report.findAll({
     where,
-    include: [REVIEWER_INCLUDE],
+    include: [REVIEWER_INCLUDE, STAFF_NOTE_AUTHOR_INCLUDE],
     order: [['createdAt', 'DESC']],
   });
 }
 
 export async function getReportById(id: string): Promise<Report> {
-  const report = await Report.findByPk(id, { include: [REVIEWER_INCLUDE] });
+  const report = await Report.findByPk(id, { include: [REVIEWER_INCLUDE, STAFF_NOTE_AUTHOR_INCLUDE] });
   if (!report) {
     throw Object.assign(new Error('Report not found'), { statusCode: 404 });
   }
@@ -132,7 +156,10 @@ export async function reviewReport(id: string, input: ReviewInput): Promise<Repo
   const report = await getReportById(id);
   const updates: Record<string, unknown> = {};
 
-  if (input.staffNote !== undefined) updates.staffNote = input.staffNote;
+  if (input.staffNote !== undefined) {
+    updates.staffNote = input.staffNote;
+    updates.staffNoteBy = input.staffNoteBy ?? null;
+  }
   if (input.reviewStatus !== undefined) updates.reviewStatus = input.reviewStatus;
   if (input.rejectReason !== undefined) updates.rejectReason = input.rejectReason;
   if (input.aiCategory !== undefined) updates.aiCategory = input.aiCategory;
@@ -154,7 +181,7 @@ export async function reviewReport(id: string, input: ReviewInput): Promise<Repo
 
 
 
-export async function changeStatus(id: string, status: 'in_review' | 'in_progress' | 'resolved', note?: string): Promise<Report> {
+export async function changeStatus(id: string, status: 'in_review' | 'in_progress' | 'resolved', note?: string, userId?: string): Promise<Report> {
   const report = await getReportById(id);
   const allowed: Record<string, string[]> = {
     pending:     ['in_review'],
@@ -173,6 +200,7 @@ export async function changeStatus(id: string, status: 'in_review' | 'in_progres
     updates.reviewStatus = null;
     updates.rejectReason = null;
     updates.staffNote = note ?? null;
+    updates.staffNoteBy = note ? (userId ?? null) : null;
   }
   if (status !== 'in_review' && note !== undefined) updates.staffNote = note;
   await report.update(updates);

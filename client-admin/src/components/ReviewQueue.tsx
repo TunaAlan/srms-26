@@ -212,6 +212,7 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
           <thead>
             <tr>
               <th>Fotoğraf</th>
+              <th style={{ width: '60px' }}>#</th>
               <th>Açıklama / Konum</th>
               <th style={thStyle} onClick={() => handleSort('category')}>Kategori <SortIcon col="category" /></th>
               <th style={thStyle} onClick={() => handleSort('criticality')}>Aciliyet <SortIcon col="criticality" /></th>
@@ -235,6 +236,9 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                   </td>
+                  <td style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+                    {r.reportNumber ? `#${r.reportNumber}` : '—'}
+                  </td>
                   <td>
                     <div className="report-desc">{r.description || '—'}</div>
                     <div className="report-address">
@@ -243,7 +247,7 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
                     </div>
                     {r.resolution && (
                       <div style={{ marginTop: '6px', padding: '4px 8px', background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '3px solid #f59e0b', borderRadius: '4px', fontSize: '11px', color: '#92400e' }}>
-                        ✎ {r.resolution}
+                        {r.staffNoteBy ? '↩ Admin → İnceleme:' : '✎'} {r.resolution}
                       </div>
                     )}
                   </td>

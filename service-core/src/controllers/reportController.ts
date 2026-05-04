@@ -70,12 +70,16 @@ export const getAllReports = async (req: Request, res: Response, next: NextFunct
 
     const str = (v: unknown) => (Array.isArray(v) ? v[0] : v) as string | undefined;
 
+    const isReviewer = (req as any).user?.role === 'review_personnel';
+    const reviewerId = isReviewer ? (req as any).user.id : undefined;
+
     const reports = await reportService.getAllReports({
       category: str(category),
       priority: str(priority),
       unit: str(unit),
-      status: str(status),
+      status: isReviewer ? 'in_review' : str(status),
       reviewStatus: str(reviewStatus),
+      reviewedBy: reviewerId,
     });
 
     res.json(reports);
@@ -108,7 +112,7 @@ export const changeStatus = async (req: Request, res: Response, next: NextFuncti
       res.status(400).json({ message: 'Invalid status value' });
       return;
     }
-    const report = await reportService.changeStatus(String(req.params.id), status, note);
+    const report = await reportService.changeStatus(String(req.params.id), status, note, (req as any).user?.id);
     res.json(report);
   } catch (err) {
     next(err);
@@ -149,6 +153,7 @@ export const reviewReport = async (req: Request, res: Response, next: NextFuncti
     const report = await reportService.reviewReport(String(req.params.id), {
       staffNote, reviewStatus, rejectReason, aiCategory, aiPriority, aiUnit,
       reviewedBy: req.user!.id,
+      staffNoteBy: staffNote ? req.user!.id : undefined,
     });
     res.json(report);
   } catch (err) {
