@@ -3,6 +3,7 @@ import User from './User.js';
 import Report from './Report.js';
 
 Report.belongsTo(User, { foreignKey: 'reviewedBy', as: 'reviewer' });
+Report.belongsTo(User, { foreignKey: 'staffNoteBy', as: 'staffNoteAuthor' });
 
 const db = {
   sequelize,

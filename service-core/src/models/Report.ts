@@ -12,6 +12,7 @@ class Report extends Model<
   InferCreationAttributes<Report>
 > {
   declare id: CreationOptional<string>;
+  declare reportNumber: CreationOptional<number | null>;
   declare userId: string;
 
   // Submitted by user
@@ -34,6 +35,7 @@ class Report extends Model<
   declare reviewStatus: CreationOptional<'approved' | 'corrected' | 'rejected'>;
   declare rejectReason: CreationOptional<string | null>;
   declare staffNote: CreationOptional<string>;
+  declare staffNoteBy: CreationOptional<string>;
   declare aiError: CreationOptional<boolean>;
   declare reviewedBy: CreationOptional<string>;
 
@@ -47,6 +49,11 @@ Report.init(
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
+    },
+    reportNumber: {
+      type: DataTypes.INTEGER,
+      unique: true,
+      allowNull: true,
     },
     userId: {
       type: DataTypes.UUID,
@@ -110,6 +117,10 @@ Report.init(
     },
     staffNote: {
       type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    staffNoteBy: {
+      type: DataTypes.UUID,
       allowNull: true,
     },
     aiError: {

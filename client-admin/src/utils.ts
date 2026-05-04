@@ -92,6 +92,7 @@ export function mapReport(r: any): any {
   const filename = r.imagePath ? r.imagePath.split('/').pop() : null;
   return {
     id: r.id,
+    reportNumber: r.reportNumber ?? null,
     image: filename ? `/api/reports/images/${filename}` : null,
     description: r.aiDescription || r.rejectReason || '',
     userDescription: r.userDescription || '',
@@ -106,10 +107,14 @@ export function mapReport(r: any): any {
     status: _STATUS_TO_UI[r.status] || 'pending',
     criticality: mapPriority(r.aiPriority),
     resolution: r.staffNote || '',
+    staffNoteBy: r.staffNoteBy ?? null,
+    staffNoteAuthorName: r.staffNoteAuthor?.name ?? null,
+    staffNoteAuthorRole: r.staffNoteAuthor?.role ?? null,
     aiError: r.aiError ?? false,
     reviewStatus: r.reviewStatus || null,
     rejectReason: r.rejectReason || null,
     reviewedByName: r.reviewer?.name ?? null,
+    reviewedByRole: r.reviewer?.role ?? null,
     aiConfidence: r.aiConfidence ?? null,
   };
 }

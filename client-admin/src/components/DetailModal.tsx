@@ -9,6 +9,7 @@ import {
   getConfidenceLabel,
   getConfidenceColor,
   CATEGORY_LABEL_MAP,
+  getRoleLabel,
 } from '../utils';
 
 interface DetailModalProps {
@@ -17,7 +18,6 @@ interface DetailModalProps {
   onClose: () => void;
   onViewOnMap?: (report: Report) => void;
   onChangeStatus?: (id: string, status: 'in_review' | 'in_progress' | 'resolved', note?: string) => void;
-  onReject?: (report: Report) => void;
 }
 
 const STATUS_TRANSITIONS: Record<string, { label: string; value: 'in_review' | 'in_progress' | 'resolved' }[]> = {
@@ -28,7 +28,7 @@ const STATUS_TRANSITIONS: Record<string, { label: string; value: 'in_review' | '
   ],
 };
 
-export const DetailModal: React.FC<DetailModalProps> = ({ report, role, onClose, onViewOnMap, onChangeStatus, onReject }) => {
+export const DetailModal: React.FC<DetailModalProps> = ({ report, role, onClose, onViewOnMap, onChangeStatus }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<'in_review' | 'in_progress' | 'resolved' | null>(null);
   const [statusNote, setStatusNote] = useState('');
@@ -50,7 +50,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ report, role, onClose,
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">Rapor Detayı <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 500 }}>#{report.id.split('-')[0]}</span></div>
+          <div className="modal-title">Rapor Detayı <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 500 }}>{report.reportNumber ? `#${report.reportNumber}` : `#${report.id.split('-')[0]}`}</span></div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
@@ -205,28 +205,36 @@ export const DetailModal: React.FC<DetailModalProps> = ({ report, role, onClose,
             </div>
           </div>
 
-          {report.resolution && (
-            <div style={{ marginTop: '12px', padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '3px solid #f59e0b', borderRadius: '8px' }}>
-              <div className="modal-section-title" style={{ color: '#92400e', marginBottom: '4px' }}>PERSONEL NOTU</div>
-              <p style={{ fontSize: '13px', color: '#92400e', lineHeight: 1.5, margin: 0 }}>{report.resolution}</p>
-            </div>
-          )}
+          {report.resolution && (() => {
+            const isReturnNote = report.status === 'in_review' && report.staffNoteBy;
+            return (
+              <div style={{ marginTop: '12px', padding: '12px 16px', background: isReturnNote ? '#fffbeb' : '#f0fdf4', border: isReturnNote ? '1px solid #fde68a' : '1px solid #bbf7d0', borderLeft: isReturnNote ? '3px solid #f59e0b' : '3px solid #22c55e', borderRadius: '8px' }}>
+                <div className="modal-section-title" style={{ color: isReturnNote ? '#92400e' : '#166534', marginBottom: '4px' }}>PERSONEL NOTU</div>
+                <p style={{ fontSize: '13px', color: isReturnNote ? '#92400e' : '#166534', lineHeight: 1.5, margin: 0 }}>{report.resolution}</p>
+                {report.staffNoteAuthorName && (
+                  <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '6px', marginBottom: 0 }}>
+                    👤 {report.staffNoteAuthorName} ({getRoleLabel(report.staffNoteAuthorRole ?? '')})
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {report.rejectReason && (
             <div style={{ marginTop: '12px', padding: '12px 16px', background: '#fff1f2', border: '1px solid #fca5a5', borderLeft: '3px solid var(--danger)', borderRadius: '8px' }}>
               <div className="modal-section-title" style={{ color: 'var(--danger)', marginBottom: '4px' }}>RET SEBEBİ</div>
               <p style={{ fontSize: '13px', color: 'var(--danger)', lineHeight: 1.5, margin: 0 }}>{report.rejectReason}</p>
+              {report.reviewedByName && (
+                <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '6px', marginBottom: 0 }}>
+                  👤 {report.reviewedByName} ({getRoleLabel(report.reviewedByRole ?? '')})
+                </p>
+              )}
             </div>
           )}
         </div>
 
         <div className="modal-footer">
           <button className="btn-cancel" onClick={onClose}>Kapat</button>
-          {role === 'admin' && report.status === 'in_progress' && onReject && (
-            <button className="btn btn-reject" style={{ padding: '8px 16px' }} onClick={() => { onClose(); onReject(report); }}>
-              ✕ Reddet
-            </button>
-          )}
         </div>
       </div>
     </div>

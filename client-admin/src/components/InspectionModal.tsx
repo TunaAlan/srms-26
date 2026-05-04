@@ -7,6 +7,7 @@ import {
   getConfidenceColor,
   CATEGORY_LABEL_MAP,
   getTimeAgo,
+  getRoleLabel,
 } from '../utils';
 
 interface InspectionModalProps {
@@ -69,7 +70,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ maxWidth: '640px' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span className="modal-title">Rapor İnceleme</span>
+          <span className="modal-title">Rapor İnceleme {report.reportNumber && <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 500 }}>#{report.reportNumber}</span>}</span>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
 
@@ -204,12 +205,20 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                   👤 Son inceleme: <strong>{report.reviewedByName}</strong>
                 </div>
               )}
-              {report.resolution && (
-                <div style={{ marginTop: '12px', padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '3px solid #f59e0b', borderRadius: '8px' }}>
-                  <div className="modal-section-title" style={{ color: '#92400e', marginBottom: '4px' }}>PERSONEL NOTU</div>
-                  <p style={{ fontSize: '13px', color: '#92400e', lineHeight: 1.5, margin: 0 }}>{report.resolution}</p>
-                </div>
-              )}
+              {report.resolution && (() => {
+                const isReturnNote = report.status === 'in_review' && report.staffNoteBy;
+                return (
+                  <div style={{ marginTop: '12px', padding: '12px 16px', background: isReturnNote ? '#fffbeb' : '#f0fdf4', border: isReturnNote ? '1px solid #fde68a' : '1px solid #bbf7d0', borderLeft: isReturnNote ? '3px solid #f59e0b' : '3px solid #22c55e', borderRadius: '8px' }}>
+                    <div className="modal-section-title" style={{ color: isReturnNote ? '#92400e' : '#166534', marginBottom: '4px' }}>PERSONEL NOTU</div>
+                    <p style={{ fontSize: '13px', color: isReturnNote ? '#92400e' : '#166534', lineHeight: 1.5, margin: 0 }}>{report.resolution}</p>
+                    {report.staffNoteAuthorName && (
+                      <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '6px', marginBottom: 0 }}>
+                        👤 {report.staffNoteAuthorName} ({getRoleLabel(report.staffNoteAuthorRole ?? '')})
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="modal-footer">

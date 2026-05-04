@@ -61,11 +61,12 @@ export const ReportsList: React.FC<ReportsListProps> = ({
     if (filterCriticality !== 'all' && r.criticality !== filterCriticality) return false;
     if (filterUnit !== 'all' && r.aiUnit !== filterUnit) return false;
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+      const q = searchQuery.toLowerCase().replace(/^#/, '');
       return (
         r.description.toLowerCase().includes(q) ||
         r.address.toLowerCase().includes(q) ||
-        r.categoryLabel.toLowerCase().includes(q)
+        r.categoryLabel.toLowerCase().includes(q) ||
+        (r.reportNumber !== null && String(r.reportNumber).includes(q))
       );
     }
     return true;
@@ -157,6 +158,7 @@ export const ReportsList: React.FC<ReportsListProps> = ({
             <thead>
               <tr>
                 <th>Fotoğraf</th>
+                <th style={{ width: '60px' }}>#</th>
                 <th>Açıklama / Konum</th>
                 <th style={thStyle} onClick={() => handleSort('category')}>
                   Kategori <SortIcon col="category" />
@@ -190,6 +192,9 @@ export const ReportsList: React.FC<ReportsListProps> = ({
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                       />
                     </td>
+                    <td style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+                      {r.reportNumber ? `#${r.reportNumber}` : '—'}
+                    </td>
                     <td>
                       <div className="report-desc" style={!r.description ? { color: r.aiError ? 'var(--danger, #dc2626)' : 'var(--text-tertiary)', fontStyle: 'italic' } : undefined}>
                         {r.description || (r.aiError ? 'Analiz başarısız' : 'Analiz bekleniyor...')}
@@ -198,7 +203,25 @@ export const ReportsList: React.FC<ReportsListProps> = ({
                         {r.address && <span>📍 {r.address}</span>}
                         {r.aiUnit && <span style={{ marginLeft: r.address ? '8px' : '0' }}>🏢 {r.aiUnit}</span>}
                       </div>
-                      {r.resolution && <div className="resolution-note">✎ {r.resolution}</div>}
+                      {r.resolution && (() => {
+                        const isReturnNote = r.status === 'in_review' && r.staffNoteBy;
+                        return (
+                          <div style={{
+                            marginTop: '6px', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 500,
+                            background: isReturnNote ? '#fffbeb' : '#f0fdf4',
+                            border: isReturnNote ? '1px solid #fde68a' : '1px solid #bbf7d0',
+                            borderLeft: isReturnNote ? '3px solid #f59e0b' : '3px solid #22c55e',
+                            color: isReturnNote ? '#92400e' : '#166534',
+                          }}>
+                            {isReturnNote ? '↩ Admin → İnceleme:' : '✎'} {r.resolution}
+                          </div>
+                        );
+                      })()}
+                      {r.rejectReason && r.status === 'rejected' && (
+                        <div style={{ marginTop: '6px', padding: '4px 8px', background: '#fef2f2', border: '1px solid #fca5a5', borderLeft: '3px solid #dc2626', borderRadius: '4px', fontSize: '11px', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontWeight: 700 }}>✕</span> {r.rejectReason}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '12px' }}>

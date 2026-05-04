@@ -1,5 +1,6 @@
 export interface Report {
   id: string;
+  reportNumber: number | null;
   image: string | null;
   description: string;
   userDescription: string;
@@ -16,9 +17,13 @@ export interface Report {
   reviewStatus: 'approved' | 'corrected' | 'rejected' | null;
   rejectReason: string | null;
   reviewedByName: string | null;
+  reviewedByRole: string | null;
   aiConfidence: number | null;
   aiUnit: string | null;
   aiError: boolean;
+  staffNoteBy: string | null;
+  staffNoteAuthorName: string | null;
+  staffNoteAuthorRole: string | null;
 }
 
 export interface StaffUser {
