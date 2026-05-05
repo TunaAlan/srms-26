@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/authService.js';
-import { addToBlacklist } from '../services/tokenBlacklist.js';
 
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -22,10 +21,30 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
   }
 };
 
-export const logout = (req: Request, res: Response): void => {
-  const token = req.headers.authorization!.split(' ')[1];
-  addToBlacklist(token);
-  res.json({ message: 'Çıkış başarılı' });
+export const refresh = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      res.status(400).json({ message: 'Refresh token gerekli' });
+      return;
+    }
+    const result = await authService.refresh(refreshToken);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      await authService.logout(refreshToken);
+    }
+    res.json({ message: 'Çıkış başarılı' });
+  } catch (err) {
+    next(err);
+  }
 };
 
 export const getProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

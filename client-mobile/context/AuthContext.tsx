@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       setIsLoading(true);
-      await apiClient.clearAuthToken();
+      await apiClient.logout();
       setUser(null);
       setError(null);
     } finally {

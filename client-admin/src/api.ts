@@ -1,27 +1,79 @@
 const API_BASE = '/api';
 
+const ACCESS_TOKEN_KEY = 'srms_token';
+const REFRESH_TOKEN_KEY = 'srms_refresh_token';
+
 export function getToken(): string {
-  return localStorage.getItem('srms_token') || '';
+  return localStorage.getItem(ACCESS_TOKEN_KEY) || '';
+}
+
+let isRefreshing = false;
+let refreshQueue: Array<(token: string | null) => void> = [];
+
+async function doRefresh(): Promise<string> {
+  const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+  if (!refreshToken) throw new Error('No refresh token');
+
+  const res = await fetch(`${API_BASE}/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  });
+
+  if (!res.ok) {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    throw new Error('Refresh failed');
+  }
+
+  const data = await res.json();
+  localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
+  localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+  return data.accessToken;
 }
 
 export async function apiFetch(path: string, options: any = {}): Promise<any> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Authorization': `Bearer ${getToken()}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
+  const makeRequest = async (token: string) => {
+    return fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+    });
+  };
 
-  if (res.status === 204) {
-    return null; // No Content
-  }
+  let res = await makeRequest(getToken());
 
   if (res.status === 401) {
-    localStorage.removeItem('srms_token');
-    return null;
+    if (isRefreshing) {
+      const newToken = await new Promise<string | null>((resolve) => {
+        refreshQueue.push(resolve);
+      });
+      if (!newToken) return null;
+      res = await makeRequest(newToken);
+    } else {
+      isRefreshing = true;
+      try {
+        const newToken = await doRefresh();
+        refreshQueue.forEach((cb) => cb(newToken));
+        refreshQueue = [];
+        res = await makeRequest(newToken);
+      } catch {
+        refreshQueue.forEach((cb) => cb(null));
+        refreshQueue = [];
+        isRefreshing = false;
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
+        return null;
+      } finally {
+        isRefreshing = false;
+      }
+    }
   }
+
+  if (res.status === 204) return null;
 
   const data = await res.json().catch(() => null);
 
@@ -34,12 +86,37 @@ export async function apiFetch(path: string, options: any = {}): Promise<any> {
 
 export async function logout(): Promise<void> {
   try {
-    await apiFetch('/auth/logout', { method: 'POST' });
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (refreshToken) {
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+    }
   } catch {
-    // If the token is already invalid, just proceed silently.
+    // Token zaten geçersizse sessizce devam et
   } finally {
-    localStorage.removeItem('srms_token');
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
   }
+}
+
+export async function login(email: string, password: string): Promise<any> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Giriş başarısız');
+  if (!['admin', 'review_personnel'].includes(data.user.role)) {
+    throw new Error('Bu panele erişim yetkiniz yok.');
+  }
+  return data;
 }
 
 export async function fetchStaff() {
@@ -67,18 +144,4 @@ export async function changeReportStatus(id: string, status: 'in_review' | 'in_p
     method: 'PATCH',
     body: JSON.stringify({ status, ...(note ? { note } : {}) }),
   });
-}
-
-export async function login(email: string, password: string): Promise<any> {
-  const res = await fetch(`${API_BASE}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || 'Giriş başarısız');
-  if (!['admin', 'review_personnel'].includes(data.user.role)) {
-    throw new Error('Bu panele erişim yetkiniz yok.');
-  }
-  return data;
 }
