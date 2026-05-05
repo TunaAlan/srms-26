@@ -172,7 +172,8 @@ function App() {
     setLoginError(null);
     try {
       const data = await login(email, pass);
-      localStorage.setItem('srms_token', data.token);
+      localStorage.setItem('srms_token', data.accessToken);
+      localStorage.setItem('srms_refresh_token', data.refreshToken);
       const role = data.user.role as UserRole;
       setUserRole(role);
       setUserName(data.user.name || data.user.email || 'Admin');

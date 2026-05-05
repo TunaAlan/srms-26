@@ -9,6 +9,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.6.3] - 2026-05-05
+
+### Security — Refresh Token Architecture
+
+#### Motivation
+
+The previous logout implementation (0.5.0) stored revoked JWTs in an in-memory `Set`. This had three structural problems: (1) the blacklist was lost on every server restart, allowing logged-out users to reuse their tokens; (2) it assumed a single server instance — horizontal scaling would give each container its own isolated blacklist; (3) the `Set` grew indefinitely with no eviction.
+
+The root cause was a 7-day access token lifetime. The fix is to shorten it to 15 minutes — at that window, a leaked or post-logout token becomes invalid on its own — and introduce a database-backed refresh token for session continuity. This removes the need for a blacklist entirely.
+
+---
+
+### Service Core (Backend)
+
+#### Added
+- `RefreshToken` model — `userId`, `token` (opaque random bytes), `expiresAt`, `revoked`. `revoked` is a soft-delete flag rather than a hard delete to preserve the audit trail of terminated sessions.
+- `POST /auth/refresh` — validates the refresh token (existence, `revoked`, `expiresAt`, `user.isActive`), issues a new access token, and rotates the refresh token. Rotation ensures a stolen refresh token is invalidated the moment the legitimate user next refreshes.
+- `user.isActive` check in the refresh handler — a suspended account is locked out within 15 minutes (the remaining access token lifetime) without blacklist lookups on every request.
+- `JWT_REFRESH_SECRET` — refresh tokens are signed with a separate secret; compromise of one does not affect the other.
+
+#### Changed
+- `JWT_EXPIRES_IN` default: `7d` → `15m`.
+- `login` / `register` response: `{ user, token }` → `{ user, accessToken, refreshToken }`.
+- `logout` — from in-memory `Set` insertion to `RefreshToken.update({ revoked: true })`.
+- `authenticate` middleware — `isBlacklisted` call removed; middleware now only verifies JWT signature and expiry.
+
+#### Removed
+- `tokenBlacklist.ts` — no longer needed.
+
+#### Infrastructure
+- `docker-compose.yml` and `.env` files updated with `JWT_REFRESH_SECRET` and `JWT_REFRESH_EXPIRES_IN`.
+
+---
+
+### Client Mobile
+
+#### Changed
+- `accessToken` and `refreshToken` stored separately in `expo-secure-store`.
+- Axios `401` interceptor automatically calls `POST /auth/refresh`, rotates tokens, and retries the original request — user sees no interruption. Concurrent `401`s are queued and retried together once the single refresh resolves.
+- `logout` sends `refreshToken` to the server before clearing local storage.
+
+---
+
+### Client Admin
+
+#### Changed
+- `srms_token` (access) and `srms_refresh_token` (refresh) stored as separate `localStorage` keys.
+- `apiFetch` extended with automatic `401` refresh + retry, mirroring the mobile logic.
+- `logout` sends `refreshToken` to `POST /auth/logout` before clearing `localStorage`.
+- `handleLogin`: `data.token` → `data.accessToken` + `data.refreshToken`.
+
+---
+
 ## [0.6.2] - 2026-05-04
 
 ### Service Core (Backend)
@@ -253,7 +306,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Added
 - `EmergencyReports` component — Acil / Normal / Arşiv tabs with sorting, category filter, and search.
 - **Archive tab** — completed reports (`forwardStatus === 'completed'`) are separated from the active queue; active queue no longer mixed with finished work.
-- Truncated `forwardNote` shown beneath the description in archive rows (`📝 note content...`).
+- Truncated `forwardNote` shown beneath the description in archive rows (`note content...`).
 - Clicking an archive row opens a **read-only ForwardModal** — full intervention note, location, and descriptions are visible; no edits possible.
 - **Delete button** for `super_admin` in the archive tab — uses the existing `DELETE /reports/:id` endpoint via `DeleteModal` confirmation.
 - Contextual colour-coded info banner per tab: Acil → red, Normal → blue, Arşiv → green; report count shown on the right.
