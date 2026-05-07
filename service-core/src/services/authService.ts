@@ -37,7 +37,7 @@ const getRefreshExpiryDate = (): Date => {
 export const register = async ({ name, email, password }: RegisterInput) => {
   const existing = await User.findOne({ where: { email } });
   if (existing) {
-    const err = Object.assign(new Error('Bu e-posta adresi zaten kayıtlı'), { statusCode: 409 });
+    const err = Object.assign(new Error('This email address is already registered'), { statusCode: 409 });
     throw err;
   }
 
@@ -57,18 +57,18 @@ export const register = async ({ name, email, password }: RegisterInput) => {
 export const login = async ({ email, password }: LoginInput) => {
   const user = await User.findOne({ where: { email } });
   if (!user) {
-    const err = Object.assign(new Error('E-posta veya şifre hatalı'), { statusCode: 401 });
+    const err = Object.assign(new Error('Invalid email or password'), { statusCode: 401 });
     throw err;
   }
 
   const isMatch = await user.comparePassword(password);
   if (!isMatch) {
-    const err = Object.assign(new Error('E-posta veya şifre hatalı'), { statusCode: 401 });
+    const err = Object.assign(new Error('Invalid email or password'), { statusCode: 401 });
     throw err;
   }
 
   if (!user.isActive) {
-    const err = Object.assign(new Error('Hesabınız askıya alınmıştır. Yöneticinizle iletişime geçin.'), { statusCode: 403 });
+    const err = Object.assign(new Error('Your account has been suspended. Please contact your administrator.'), { statusCode: 403 });
     throw err;
   }
 
@@ -88,18 +88,18 @@ export const refresh = async (token: string) => {
   const record = await RefreshToken.findOne({ where: { token } });
 
   if (!record || record.revoked || record.expiresAt < new Date()) {
-    const err = Object.assign(new Error('Geçersiz veya süresi dolmuş refresh token'), { statusCode: 401 });
+    const err = Object.assign(new Error('Invalid or expired refresh token'), { statusCode: 401 });
     throw err;
   }
 
   const user = await User.findByPk(record.userId);
   if (!user || !user.isActive) {
     await record.update({ revoked: true });
-    const err = Object.assign(new Error('Hesabınız askıya alınmıştır. Yöneticinizle iletişime geçin.'), { statusCode: 403 });
+    const err = Object.assign(new Error('Your account has been suspended. Please contact your administrator.'), { statusCode: 403 });
     throw err;
   }
 
-  // Rotation: eski token iptal edilir, yeni token verilir
+  // Rotation: revoke old token and issue a new one
   await record.update({ revoked: true });
 
   const newRefreshTokenValue = generateRefreshToken();
@@ -120,7 +120,7 @@ export const logout = async (token: string) => {
 export const getProfile = async (userId: string) => {
   const user = await User.findByPk(userId);
   if (!user) {
-    const err = Object.assign(new Error('Kullanıcı bulunamadı'), { statusCode: 404 });
+    const err = Object.assign(new Error('User not found'), { statusCode: 404 });
     throw err;
   }
   return user.toSafeJSON();

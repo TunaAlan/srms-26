@@ -9,6 +9,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.6.3] - 2026-05-07
+
+### Service Core — Unit Test Suite
+
+#### Motivation
+
+The backend had no automated tests. With six people committing to the same codebase, regressions in auth, report lifecycle, and role enforcement were caught manually or not at all. The test suite establishes a safety net at the service and middleware layers — the two layers that contain all business logic and access control decisions.
+
+Controllers and models are intentionally excluded. Controllers delegate entirely to services (no branching logic to assert); models are Sequelize schema definitions (testing them means testing the ORM, not our code). The meaningful surface area is services and middleware.
+
+---
+
+#### Why Vitest, not Jest
+
+`service-core` is configured with `"type": "module"` and `"module": "NodeNext"` in `tsconfig.json`. Jest does not natively support ESM — running it requires `--experimental-vm-modules`, a `.cjs` config file, and additional `ts-jest` transforms. In practice this produces fragile config that breaks on minor Node or TypeScript version bumps.
+
+Vitest supports ESM and TypeScript out of the box with zero additional transforms. It exposes an identical API (`describe`, `it`, `expect`, `vi` vs. `jest`) so there is no learning curve, and it is significantly faster on cold starts. For a `NodeNext` project, Vitest is the correct default; Jest is a workaround.
+
+---
+
+#### Added
+
+**Test runner**
+- `vitest` and `@vitest/coverage-v8` added to `devDependencies`.
+- `vitest.config.ts` — `environment: node`, `include: tests/**/*.test.ts`, coverage scoped to `src/services/**` and `src/middleware/**`.
+- `package.json` scripts: `test` (single run), `test:watch` (file-watch mode), `test:coverage` (with v8 coverage report).
+- `service-core/coverage/` added to root `.gitignore`.
+
+**Test files**
+
+`tests/unit/authService.test.ts` — 15 tests
+- `register`: successful registration returns `{ user, accessToken, refreshToken }`; duplicate email throws 409.
+- `login`: successful login returns tokens; user not found throws 401; wrong password throws 401; inactive account throws 403.
+- `refresh`: successful rotation returns new token pair; token not found throws 401; token revoked throws 401; token expired throws 401; user deleted from DB throws 403; user inactive throws 403.
+- `logout`: `RefreshToken.update({ revoked: true })` called with correct token.
+- `getProfile`: returns safe user object; missing user throws 404.
+
+`tests/unit/auth.middleware.test.ts` — 7 tests
+- `authenticate`: valid token sets `req.user` and calls `next`; missing `Authorization` header returns 401; wrong scheme (`Basic` instead of `Bearer`) returns 401; invalid/expired token returns 401.
+- `authorize`: matching role calls `next`; non-matching role returns 403; `req.user` undefined (authenticate skipped) returns 403.
+
+`tests/unit/userService.test.ts` — 9 tests
+- `listStaff`: `findAll` called with `role: ['admin', 'review_personnel']` filter.
+- `createStaff`: returns `toSafeJSON()` result on success; duplicate email throws 409.
+- `setActive`: calls `user.update({ isActive })` on success; user not found throws 404; citizen role (`role: 'user'`) throws 400.
+- `deleteStaff`: calls `user.destroy()` on success; user not found throws 404; citizen role throws 400.
+
+`tests/unit/reportService.test.ts` — 25 tests
+- `getReportById`: returns report; missing report throws 404.
+- `createReport`: `reportNumber` increments from `MAX + 1`; starts at 1 when table is empty; AI-rejected image sets `status: rejected`, `reviewStatus: rejected`; AI service failure sets `aiError: true`.
+- `reviewReport`: `approved` sets `status: in_progress`; `corrected` sets `status: in_progress`; `rejected` sets `status: rejected`; `staffNote` and `staffNoteBy` persisted when provided.
+- `deleteReport`: calls `report.destroy()` and `unlink(imagePath)`; missing report throws 404.
+- `retryAnalysis`: returns report for `pending` status; non-pending throws 400.
+- `getMyReports`: `findAll` called with `{ where: { userId } }`.
+- `getAllReports`: no filter; category filter; status filter (without `reviewedBy`); `reviewedBy` filter builds `Op.or` clause.
+- `changeStatus`: `pending → in_review` allowed; `in_progress → resolved` allowed; `in_progress → in_review` allowed; `rejected → in_review` allowed; `in_review` transition resets `reviewStatus` and `rejectReason` to null; `pending → resolved` throws 400; `in_review → resolved` throws 400.
+
+---
+
+#### Edge Cases
+
+`authService`
+- `refresh`: token record exists but `user` row was deleted from DB — same 403 path as inactive user, but triggered by a missing FK target rather than a flag. Verified that `record.update({ revoked: true })` is still called before throwing, preventing the orphaned token from being reused.
+- `refresh`: expired token (`expiresAt < new Date()`) — boundary checked with a date set 1 second in the past; ensures the comparison is strict rather than `<=`.
+
+`auth.middleware`
+- `authenticate`: `Authorization` header present but uses wrong scheme (`Basic token123` instead of `Bearer`) — the `startsWith('Bearer ')` guard rejects it with 401 before attempting `jwt.verify`. Catches misconfigured clients that send credentials in the wrong format.
+- `authorize`: called without a preceding `authenticate` — `req.user` is `undefined`. The `!req.user` guard returns 403 rather than throwing a runtime `TypeError` on `req.user.role`.
+
+`userService`
+- `setActive` / `deleteStaff`: target user exists but has `role: 'user'` (citizen) — staff management endpoints must not affect citizen accounts. Verified 400 is thrown before any mutation.
+
+`reportService`
+- `createReport`: `MAX(reportNumber)` returns `null` (empty table) — `?? 0` fallback produces `reportNumber: 1` on the first insert. Without this test, a `null + 1 = 1` assumption would silently break if Sequelize returned `undefined` instead.
+- `createReport` (AI rejected): `analyzeImage` resolves with `rejected: true` — report is set to `status: rejected` and never enters the review queue. The background promise is awaited with a 10ms flush to assert the update was called after the async fire-and-forget.
+- `createReport` (AI error): `analyzeImage` rejects — `aiError: true` is set and `status` stays `pending` for admin retry. The nested `.catch` handler is exercised; without this test the fallback path was entirely invisible to coverage.
+- `retryAnalysis`: report `status` is not `pending` — 400 thrown immediately without triggering `runAiAnalysis`. Prevents re-analysis of already-processed reports.
+- `changeStatus`: `in_review` transition explicitly nulls `reviewStatus` and `rejectReason` — verifies that a previously rejected report is fully reset when sent back to review, not just given a new status.
+
+---
+
+#### Coverage
+
+```
+authService.ts       100% lines  /  95% branches
+auth.ts (middleware) 100% lines  / 100% branches
+userService.ts       100% lines  / 100% branches
+reportService.ts      98% lines  /  80% branches
+─────────────────────────────────────────────────
+Overall               85% lines  /  68% branches
+```
+
+Remaining uncovered branches: `aiService.ts` (external Gemini API — not testable in isolation), `errorHandler.ts` (no business logic), `reportService` line 103 (nested `.catch` inside fire-and-forget AI call).
+
+---
+
 ## [0.6.3] - 2026-05-05
 
 ### Security — Refresh Token Architecture
