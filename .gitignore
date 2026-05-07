@@ -40,6 +40,9 @@ client-mobile/.env.test
 # typescript
 *.tsbuildinfo
 
+# test coverage
+service-core/coverage/
+
 # generated native folders
 ios/
 android/
