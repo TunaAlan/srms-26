@@ -107,14 +107,6 @@ export default function ReportScreen() {
     if (!result.canceled) setImage(result.assets[0].uri);
   };
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      quality: 0.7,
-      allowsEditing: true,
-    });
-    if (!result.canceled) setImage(result.assets[0].uri);
-  };
-
   const selectedCat = CATEGORIES.find((c) => c.id === category);
 
   const handleSubmit = async () => {
@@ -150,168 +142,155 @@ export default function ReportScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-      {/* Photo */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Fotoğraf</Text>
-        {image ? (
-          <View style={styles.imageWrapper}>
-            <Image source={{ uri: image }} style={styles.preview} />
-            <TouchableOpacity
-              style={styles.removeBtn}
-              onPress={() => setImage(null)}
-            >
-              <Ionicons name="close" size={18} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.photoRow}>
-            <TouchableOpacity style={styles.photoBtn} onPress={takePhoto}>
-              <View style={styles.photoBtnIcon}>
-                <Ionicons
-                  name="camera"
-                  size={24}
-                  color={theme.colors.primary}
-                />
-              </View>
-              <Text style={styles.photoBtnText}>Kamera</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.photoBtn} onPress={pickImage}>
-              <View style={styles.photoBtnIcon}>
-                <Ionicons
-                  name="images"
-                  size={24}
-                  color={theme.colors.primary}
-                />
-              </View>
-              <Text style={styles.photoBtnText}>Galeri</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      {/* Location */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Konum</Text>
-        <TouchableOpacity
-          style={styles.locationCard}
-          onPress={getLocation}
-          activeOpacity={0.7}
-        >
-          {loadingLocation ? (
-            <ActivityIndicator color={theme.colors.primary} />
-          ) : location ? (
-            <View style={styles.locationRow}>
-              <View style={styles.locationIconWrap}>
-                <Ionicons
-                  name="location"
-                  size={18}
-                  color={theme.colors.success}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.locationAddress}>{location.address}</Text>
-                <Text style={styles.locationCoords}>
-                  {location.latitude.toFixed(5)},{" "}
-                  {location.longitude.toFixed(5)}
-                </Text>
-              </View>
-              <Ionicons
-                name="refresh"
-                size={18}
-                color={theme.colors.textTertiary}
-              />
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {/* Photo */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Fotoğraf <Text style={styles.requiredAsterisk}>*</Text></Text>
+          {image ? (
+            <View style={styles.imageWrapper}>
+              <Image source={{ uri: image }} style={styles.preview} />
+              <TouchableOpacity
+                style={styles.removeBtn}
+                onPress={() => setImage(null)}
+              >
+                <Ionicons name="close" size={18} color="#fff" />
+              </TouchableOpacity>
             </View>
           ) : (
-            <View style={styles.locationRow}>
-              <Ionicons
-                name="location-outline"
-                size={20}
-                color={theme.colors.textTertiary}
-              />
-              <Text style={styles.locationMissing}>
-                Konum almak için dokunun
+            <TouchableOpacity style={styles.singleCameraBtn} onPress={takePhoto} activeOpacity={0.8}>
+              <View style={styles.singleCameraIconWrap}>
+                <Ionicons name="camera" size={36} color={theme.colors.primary} />
+              </View>
+              <Text style={styles.singleCameraTitle}>Fotoğraf Çek</Text>
+              <Text style={styles.singleCameraSubtitle}>
+                Bildirmek istediğiniz durumu anlık olarak çekin
               </Text>
-            </View>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Location */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Konum</Text>
+          <TouchableOpacity
+            style={styles.locationCard}
+            onPress={getLocation}
+            activeOpacity={0.7}
+          >
+            {loadingLocation ? (
+              <ActivityIndicator color={theme.colors.primary} />
+            ) : location ? (
+              <View style={styles.locationRow}>
+                <View style={styles.locationIconWrap}>
+                  <Ionicons
+                    name="location"
+                    size={18}
+                    color={theme.colors.success}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.locationAddress}>{location.address}</Text>
+                  <Text style={styles.locationCoords}>
+                    {location.latitude.toFixed(5)},{" "}
+                    {location.longitude.toFixed(5)}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="refresh"
+                  size={18}
+                  color={theme.colors.textTertiary}
+                />
+              </View>
+            ) : (
+              <View style={styles.locationRow}>
+                <Ionicons
+                  name="location-outline"
+                  size={20}
+                  color={theme.colors.textTertiary}
+                />
+                <Text style={styles.locationMissing}>
+                  Konum almak için dokunun
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Category */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Kategori <Text style={{ fontWeight: '400', textTransform: 'none' }}>(opsiyonel)</Text></Text>
+          <View style={styles.categoryGrid}>
+            {CATEGORIES.map((cat) => {
+              const isActive = category === cat.id;
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[
+                    styles.categoryItem,
+                    isActive && styles.categoryItemActive,
+                  ]}
+                  onPress={() => setCategory(isActive ? "" : cat.id)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={cat.icon}
+                    size={20}
+                    color={isActive ? "#fff" : theme.colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.categoryLabel,
+                      isActive && styles.categoryLabelActive,
+                    ]}
+                  >
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Description */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Açıklama <Text style={{ fontWeight: '400', textTransform: 'none' }}>(opsiyonel)</Text></Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Sorunu detaylı bir şekilde açıklayın..."
+            placeholderTextColor={theme.colors.textTertiary}
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={5}
+            textAlignVertical="top"
+          />
+          <Text style={styles.hint}>
+            Aciliyet seviyesi açıklamanıza göre otomatik olarak belirlenir
+          </Text>
+        </View>
+
+        {/* Submit */}
+        <TouchableOpacity
+          style={[
+            styles.submitBtn,
+            (!image || submitting) && styles.submitDisabled,
+          ]}
+          onPress={handleSubmit}
+          disabled={submitting}
+          activeOpacity={0.85}
+        >
+          {submitting ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <Ionicons name="send" size={18} color="#fff" />
+              <Text style={styles.submitText}>Bildir</Text>
+            </>
           )}
         </TouchableOpacity>
-      </View>
 
-      {/* Category */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Kategori <Text style={{ fontWeight: '400', textTransform: 'none' }}>(opsiyonel)</Text></Text>
-        <View style={styles.categoryGrid}>
-          {CATEGORIES.map((cat) => {
-            const isActive = category === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                style={[
-                  styles.categoryItem,
-                  isActive && styles.categoryItemActive,
-                ]}
-                onPress={() => setCategory(isActive ? "" : cat.id)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={cat.icon}
-                  size={20}
-                  color={isActive ? "#fff" : theme.colors.primary}
-                />
-                <Text
-                  style={[
-                    styles.categoryLabel,
-                    isActive && styles.categoryLabelActive,
-                  ]}
-                >
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Description */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Açıklama <Text style={{ fontWeight: '400', textTransform: 'none' }}>(opsiyonel)</Text></Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Sorunu detaylı bir şekilde açıklayın..."
-          placeholderTextColor={theme.colors.textTertiary}
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          numberOfLines={5}
-          textAlignVertical="top"
-        />
-        <Text style={styles.hint}>
-          Aciliyet seviyesi açıklamanıza göre otomatik olarak belirlenir
-        </Text>
-      </View>
-
-      {/* Submit */}
-      <TouchableOpacity
-        style={[
-          styles.submitBtn,
-          (!image || submitting) && styles.submitDisabled,
-        ]}
-        onPress={handleSubmit}
-        disabled={submitting}
-        activeOpacity={0.85}
-      >
-        {submitting ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <>
-            <Ionicons name="send" size={18} color="#fff" />
-            <Text style={styles.submitText}>Bildir</Text>
-          </>
-        )}
-      </TouchableOpacity>
-
-      <View style={{ height: 40 }} />
-    </ScrollView>
+        <View style={{ height: 40 }} />
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -333,33 +312,42 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginBottom: 10,
   },
-  photoRow: {
-    flexDirection: "row",
-    gap: 12,
+  requiredAsterisk: {
+    color: '#E53935', // Kırmızı renk (Zorunlu alan vurgusu)
+    fontSize: 14,
+    fontWeight: "bold",
   },
-  photoBtn: {
-    flex: 1,
+  // Yeni, geniş ve büyük kamera butonu tasarımı
+  singleCameraBtn: {
+    width: "100%",
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
-    padding: 20,
+    paddingVertical: 36,
+    paddingHorizontal: 20,
     alignItems: "center",
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
     borderStyle: "dashed",
+    gap: 12,
   },
-  photoBtnIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  singleCameraIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: theme.colors.primaryLight,
     justifyContent: "center",
     alignItems: "center",
   },
-  photoBtnText: {
+  singleCameraTitle: {
     color: theme.colors.primary,
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  singleCameraSubtitle: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    textAlign: "center",
   },
   imageWrapper: {
     position: "relative",
@@ -368,17 +356,17 @@ const styles = StyleSheet.create({
   },
   preview: {
     width: "100%",
-    height: 200,
+    height: 250, // Önizleme alanını biraz daha büyüttük
     borderRadius: theme.borderRadius.lg,
   },
   removeBtn: {
     position: "absolute",
     top: 10,
     right: 10,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
   },

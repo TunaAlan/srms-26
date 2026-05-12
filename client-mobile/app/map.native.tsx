@@ -7,14 +7,18 @@ import { Dimensions, StyleSheet, Text, View } from "react-native";
 import MapView, { Callout, Marker } from "react-native-maps";
 
 const CATEGORY_COLORS: Record<string, string> = {
-  yol: "#E8651A",
-  su: "#0288D1",
-  elektrik: "#E8A317",
-  bina: "#7B1FA2",
-  park: "#0D9E4F",
-  cop: "#5D4037",
-  gaz: "#D32F2F",
-  diger: "#8E95A8",
+  road_damage: "orange",
+  sidewalk_damage: "tomato",
+  waste: "brown",
+  pollution: "linen",
+  green_space: "green",
+  lighting: "yellow",
+  traffic_sign: "gold",
+  sewage_water: "blue",
+  infrastructure: "purple",
+  vandalism: "red",
+  stray_animal: "tan",
+  natural_disaster: "navy",
 };
 
 export default function MapScreen() {
