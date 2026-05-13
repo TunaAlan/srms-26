@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import srmsLogo from '../assets/srms_logo_white_bg.png';
 import type { UserRole } from '../types';
 import { getRoleLabel } from '../utils';
 
@@ -33,7 +34,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   return (
     <div className="topbar">
       <div className="topbar-left">
-        <div className="topbar-logo">SRMS</div>
+        <img src={srmsLogo} alt="SRMS" style={{ height: '44px', width: 'auto', display: 'block', margin: 'auto 0' }} />
         <div className="topbar-divider"></div>
         <div className="topbar-title">Altyapı Yönetim Paneli</div>
         <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginLeft: '8px', fontWeight: 500 }}>

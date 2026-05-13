@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import srmsLogo from '../assets/srms_logo.png';
 
 interface LoginScreenProps {
   onLogin: (email: string, pass: string) => Promise<void>;
@@ -20,7 +21,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, loading, erro
     <div id="login-screen">
       <div className="login-card">
         <div className="login-logo">
-          <div className="login-logo-badge" style={{ width: '80px', height: '80px', lineHeight: '80px', fontSize: '20px' }}>SRMS</div>
+          <img src={srmsLogo} alt="SRMS" style={{ width: '160px', height: '160px', objectFit: 'contain' }} />
           <h1>Yönetim Paneli</h1>
           <p>Altyapı Bildirim Sistemi</p>
           <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400, letterSpacing: '0.4px' }}>
