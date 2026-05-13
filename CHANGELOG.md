@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.6.4] - 2026-05-13
+
+### Client Admin — Branding Update
+
+#### Changed
+- `LoginScreen.tsx` — `ABB` label replaced with `SRMS`; badge dimensions increased to 80×80 px with matching `line-height` and `font-size`.
+- `Topbar.tsx` — top-bar logo mark updated from `ABB` to `SRMS`.
+
+---
+
 ## [0.6.3] - 2026-05-07
 
 ### Service Core — Unit Test Suite

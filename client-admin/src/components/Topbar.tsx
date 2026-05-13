@@ -33,7 +33,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   return (
     <div className="topbar">
       <div className="topbar-left">
-        <div className="topbar-logo">ABB</div>
+        <div className="topbar-logo">SRMS</div>
         <div className="topbar-divider"></div>
         <div className="topbar-title">Altyapı Yönetim Paneli</div>
         <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginLeft: '8px', fontWeight: 500 }}>
