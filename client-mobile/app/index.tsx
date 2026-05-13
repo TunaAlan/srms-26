@@ -50,10 +50,12 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View>
-              <Text style={styles.headerTitle}>ABB</Text>
+              <Text style={styles.headerTitle}>SRMS</Text>
+              {/*
               <Text style={styles.headerSubtitle}>
                 Altyapı Bildirim Sistemi
               </Text>
+              */}
             </View>
             <TouchableOpacity
               style={styles.avatar}
@@ -164,7 +166,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.footer}>Ankara Büyükşehir Belediyesi</Text>
+        <Text style={styles.footer}>Altyapı Bildirim Sistemi</Text>
       </View>
 
       <Modal

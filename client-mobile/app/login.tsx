@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -79,18 +80,20 @@ export default function LoginScreen() {
               onPress={handleLogoTap}
               activeOpacity={1}
             >
-              <View style={styles.logoCircle}>
-                <Ionicons
-                  name="shield-checkmark"
-                  size={48}
-                  color={theme.colors.primary}
-                />
-              </View>
+            {/* logoCircle view'unu sildik, sadece Image kaldı */}
+              <Image
+                source={require("../assets/images/srms_logo.png")}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>ABB</Text>
+            {/*<Text style={styles.headerTitle}>SRMS</Text>*/}
+
+            {/*
             <Text style={styles.headerSubtitle}>
-              Altyapı Bildirim Sistemi
+              
             </Text>
+            */}
           </View>
 
           {/* Form Card */}
@@ -179,7 +182,7 @@ export default function LoginScreen() {
           </View>
 
           {/* Footer */}
-          <Text style={styles.footer}>Ankara Büyükşehir Belediyesi</Text>
+          <Text style={styles.footer}>Altyapı Bildirim Sistemi</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -206,19 +209,12 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-    elevation: 4,
-    shadowColor: "rgba(0,0,0,0.2)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
+
+  logoImage: {
+    width: 220,
+    height: 220,
+    marginBottom: 18,
+    marginTop: 18,
   },
   headerTitle: {
     fontSize: 32,
