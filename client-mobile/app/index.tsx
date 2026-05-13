@@ -7,6 +7,7 @@ import { Redirect, useRouter } from "expo-router";
 import { useState } from "react";
 import {
     Alert,
+    Image,
     Modal,
     Pressable,
     SafeAreaView,
@@ -49,14 +50,11 @@ export default function HomeScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerTop}>
-            <View>
-              <Text style={styles.headerTitle}>SRMS</Text>
-              {/*
-              <Text style={styles.headerSubtitle}>
-                Altyapı Bildirim Sistemi
-              </Text>
-              */}
-            </View>
+            <Image
+              source={require("../assets/images/srms_logo_white_bg.png")}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
             <TouchableOpacity
               style={styles.avatar}
               onPress={() => setAccountVisible(true)}
@@ -243,11 +241,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    letterSpacing: 1,
+  headerLogo: {
+    width: 72,
+    height: 72,
   },
   headerSubtitle: {
     fontSize: 14,

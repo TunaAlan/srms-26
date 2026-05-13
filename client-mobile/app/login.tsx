@@ -82,7 +82,7 @@ export default function LoginScreen() {
             >
             {/* logoCircle view'unu sildik, sadece Image kaldı */}
               <Image
-                source={require("../assets/images/srms_logo.png")}
+                source={require("../assets/images/srms_logo_white_bg.png")}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
