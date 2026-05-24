@@ -19,7 +19,7 @@ load_dotenv()
 # ===========================================================
 # AYARLAR
 # ===========================================================
-API_KEY    = os.getenv("GEMINI_API_KEY", "")
+API_KEY    = os.getenv("GEMINI_API_KEY")
 _HERE      = Path(__file__).parent
 ONNX_PATH  = str(_HERE / "text_classifier_v0.9.1.onnx")
 MODEL_NAME = "distilbert-base-uncased"

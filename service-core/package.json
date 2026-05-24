@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "pipeline:metrics": "tsx src/scripts/pipelineMetrics.ts",
     "seed": "tsx src/scripts/seed.ts"
   },
   "dependencies": {
