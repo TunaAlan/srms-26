@@ -12,6 +12,7 @@ export const seedDatabase = async () => {
     const testUsers = [
       { name: 'Admin',            email: 'admin@ankara.bel.tr',  password: 'admin123',  role: 'admin' as const },
       { name: 'Review Personnel', email: 'review@ankara.bel.tr', password: 'review123', role: 'review_personnel' as const },
+      { name: 'Citizen Test',     email: 'citizen@test.com',     password: 'citizen123', role: 'user' as const },
     ];
 
     let usersCreated = 0;

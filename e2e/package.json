@@ -1,0 +1,16 @@
+{
+  "name": "e2e",
+  "version": "0.6.5",
+  "description": "End-to-end tests for SRMS admin panel",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  }
+}
