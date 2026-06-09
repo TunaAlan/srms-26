@@ -120,9 +120,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', marginBottom: '24px' }}>
-            <div
+            <button
               onClick={() => onTabChange?.('review')}
-              style={{ background: '#f3f0ff', border: '1px solid #c4b5fd', borderRadius: 'var(--radius)', padding: '14px 18px', cursor: 'pointer', transition: 'box-shadow 0.2s', display: 'flex', alignItems: 'center', gap: '16px' }}
+              style={{ background: '#f3f0ff', border: '1px solid #c4b5fd', borderRadius: 'var(--radius)', padding: '14px 18px', cursor: 'pointer', transition: 'box-shadow 0.2s', display: 'flex', alignItems: 'center', gap: '16px', width: '100%', textAlign: 'left' }}
               onMouseEnter={(e) => (e.currentTarget.style.boxShadow = '0 4px 16px rgba(124,58,237,0.15)')}
               onMouseLeave={(e) => (e.currentTarget.style.boxShadow = 'none')}
             >
@@ -134,7 +134,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <span style={{ fontSize: '12px', color: '#a78bfa' }}>bekleyen rapor</span>
                 </div>
               </div>
-            </div>
+            </button>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px', alignItems: 'start' }}>

@@ -68,9 +68,9 @@ export const Topbar: React.FC<TopbarProps> = ({
                 <div className="user-dropdown-role">{getRoleLabel(role)}</div>
               </div>
               <div className="user-dropdown-divider"></div>
-              <div className="user-dropdown-item user-dropdown-item-danger" onClick={() => { setMenuOpen(false); onLogout(); }}>
+              <button className="user-dropdown-item user-dropdown-item-danger" onClick={() => { setMenuOpen(false); onLogout(); }}>
                 Çıkış Yap
-              </div>
+              </button>
             </div>
           )}
         </div>

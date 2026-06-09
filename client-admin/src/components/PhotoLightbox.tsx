@@ -10,8 +10,8 @@ export function PhotoLightbox({ src, alt = 'rapor görseli' }: PhotoLightboxProp
 
   return (
     <>
-      <div
-        style={{ position: 'relative', cursor: 'zoom-in', marginBottom: '16px' }}
+      <button
+        style={{ position: 'relative', cursor: 'zoom-in', marginBottom: '16px', background: 'none', border: 'none', padding: 0, display: 'block', width: '100%' }}
         onClick={() => setOpen(true)}
       >
         <img
@@ -40,7 +40,7 @@ export function PhotoLightbox({ src, alt = 'rapor görseli' }: PhotoLightboxProp
             className="lightbox-icon"
           >🔍</span>
         </div>
-      </div>
+      </button>
 
       {open && (
         <div

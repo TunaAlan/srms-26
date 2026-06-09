@@ -34,7 +34,7 @@ export const NavTabs: React.FC<NavTabsProps> = ({
   return (
     <div className="nav-tabs">
       {tabs.map((t) => (
-        <div
+        <button
           key={t.id}
           className={`nav-tab ${activeTab === t.id ? 'active' : ''}`}
           onClick={() => onTabChange(t.id)}
@@ -43,7 +43,7 @@ export const NavTabs: React.FC<NavTabsProps> = ({
           {t.id === 'review' && reviewCount > 0 && (
             <span className="nav-tab-badge nav-tab-badge-review">{reviewCount}</span>
           )}
-        </div>
+        </button>
       ))}
     </div>
   );

@@ -216,6 +216,11 @@ body {
   cursor: pointer;
   transition: background 0.15s;
   white-space: nowrap;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
 }
 
 .user-dropdown-item-danger {
@@ -241,7 +246,10 @@ body {
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
+  border: none;
   border-bottom: 2px solid transparent;
+  background: none;
+  font-family: inherit;
   transition: all 0.2s;
   user-select: none;
 }
