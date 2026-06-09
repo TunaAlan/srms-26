@@ -51,6 +51,9 @@ router.patch('/:id/status', authenticate, authorize('admin'), reportController.c
 // Admin: retry AI analysis for a failed report
 router.post('/:id/retry', authenticate, authorize('admin'), reportController.retryAnalysis);
 
+// Admin: delete all reports
+router.delete('/', authenticate, authorize('admin'), reportController.clearAllReports);
+
 // Admin: delete a report
 router.delete('/:id', authenticate, authorize('admin'), reportController.deleteReport);
 

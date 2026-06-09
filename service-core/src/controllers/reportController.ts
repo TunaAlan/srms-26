@@ -73,6 +73,7 @@ export const getAllReports = async (req: Request, res: Response, next: NextFunct
     const isReviewer = (req as any).user?.role === 'review_personnel';
     const reviewerId = isReviewer ? (req as any).user.id : undefined;
 
+    const { page, pageSize } = req.query;
     const reports = await reportService.getAllReports({
       category: str(category),
       priority: str(priority),
@@ -80,6 +81,8 @@ export const getAllReports = async (req: Request, res: Response, next: NextFunct
       status: isReviewer ? 'in_review' : str(status),
       reviewStatus: str(reviewStatus),
       reviewedBy: reviewerId,
+      page: page ? parseInt(str(page)!, 10) : undefined,
+      pageSize: pageSize ? parseInt(str(pageSize)!, 10) : undefined,
     });
 
     res.json(reports);
@@ -123,6 +126,16 @@ export const changeStatus = async (req: Request, res: Response, next: NextFuncti
 export const deleteReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     await reportService.deleteReport(String(req.params.id));
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+};
+
+//ADMIN ONLY
+export const clearAllReports = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    await reportService.clearAllReports();
     res.status(204).send();
   } catch (err) {
     next(err);

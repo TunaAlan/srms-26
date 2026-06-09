@@ -43,6 +43,16 @@ interface ListFilter {
   reviewStatus?: string;
   status?: string;
   reviewedBy?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginatedReports {
+  data: Report[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export async function createReport(input: CreateReportInput): Promise<Report> {
@@ -120,7 +130,7 @@ export async function getMyReports(userId: string): Promise<Report[]> {
   });
 }
 
-export async function getAllReports(filter: ListFilter): Promise<Report[]> {
+export async function getAllReports(filter: ListFilter): Promise<PaginatedReports> {
   const where: Record<string, unknown> = {};
 
   if (filter.category) where.aiCategory = filter.category;
@@ -137,11 +147,32 @@ export async function getAllReports(filter: ListFilter): Promise<Report[]> {
     where.status = filter.status;
   }
 
-  return Report.findAll({
+  const page = filter.page ?? 1;
+  const pageSize = filter.pageSize ?? 20;
+  const offset = (page - 1) * pageSize;
+
+  const { count, rows } = await Report.findAndCountAll({
     where,
     include: [REVIEWER_INCLUDE, STAFF_NOTE_AUTHOR_INCLUDE],
     order: [['createdAt', 'DESC']],
+    limit: pageSize,
+    offset,
+    distinct: true,
   });
+
+  return {
+    data: rows,
+    total: count,
+    page,
+    pageSize,
+    totalPages: Math.ceil(count / pageSize),
+  };
+}
+
+export async function clearAllReports(): Promise<void> {
+  const reports = await Report.findAll({ attributes: ['imagePath'] });
+  await Report.destroy({ where: {}, truncate: false });
+  await Promise.allSettled(reports.map(r => unlink(r.imagePath)));
 }
 
 export async function getReportById(id: string): Promise<Report> {
