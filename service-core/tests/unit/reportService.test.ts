@@ -128,6 +128,22 @@ describe('reportService.createReport', () => {
 
     expect(report.update).toHaveBeenCalledWith(expect.objectContaining({ aiError: true }));
   });
+
+  it('silently swallows error when fallback update also fails', async () => {
+    vi.mocked(Report.findOne).mockResolvedValue({ maxNum: 0 } as any);
+    const report = mockReport('pending');
+    report.update
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('DB down'));
+    vi.mocked(Report.create).mockResolvedValue(report as any);
+    vi.mocked(analyzeImage).mockRejectedValue(new Error('AI unavailable'));
+
+    await createReport({ userId: 'user-uuid', imagePath: '/uploads/test.jpg' });
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    // fallback update throws — no unhandled rejection should propagate
+    expect(report.update).toHaveBeenCalledTimes(2);
+  });
 });
 
 // ─── reviewReport ────────────────────────────────────────────────────────────
@@ -178,6 +194,26 @@ describe('reportService.reviewReport', () => {
     expect(report.update).toHaveBeenCalledWith(expect.objectContaining({
       reviewStatus: 'rejected',
       status: 'rejected',
+    }));
+  });
+
+  it('updates aiCategory, aiPriority, aiUnit and reviewedBy when provided', async () => {
+    const report = mockReport('in_review');
+    vi.mocked(Report.findByPk).mockResolvedValue(report as any);
+
+    await reviewReport('report-uuid-123', {
+      reviewStatus: 'corrected',
+      aiCategory: 'road_damage',
+      aiPriority: '3',
+      aiUnit: 'Roads',
+      reviewedBy: 'reviewer-uuid',
+    });
+
+    expect(report.update).toHaveBeenCalledWith(expect.objectContaining({
+      aiCategory: 'road_damage',
+      aiPriority: '3',
+      aiUnit: 'Roads',
+      reviewedBy: 'reviewer-uuid',
     }));
   });
 });
@@ -259,6 +295,36 @@ describe('reportService.getAllReports', () => {
     }));
   });
 
+  it('applies priority filter when provided', async () => {
+    vi.mocked(Report.findAll).mockResolvedValue([] as any);
+
+    await getAllReports({ priority: '3' });
+
+    expect(Report.findAll).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ aiPriority: '3' }),
+    }));
+  });
+
+  it('applies unit filter when provided', async () => {
+    vi.mocked(Report.findAll).mockResolvedValue([] as any);
+
+    await getAllReports({ unit: 'Roads' });
+
+    expect(Report.findAll).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ aiUnit: 'Roads' }),
+    }));
+  });
+
+  it('applies reviewStatus filter when provided', async () => {
+    vi.mocked(Report.findAll).mockResolvedValue([] as any);
+
+    await getAllReports({ reviewStatus: 'approved' });
+
+    expect(Report.findAll).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ reviewStatus: 'approved' }),
+    }));
+  });
+
   it('applies status filter when provided without reviewedBy', async () => {
     vi.mocked(Report.findAll).mockResolvedValue([] as any);
 
@@ -335,5 +401,42 @@ describe('reportService.changeStatus', () => {
 
     await expect(changeStatus('report-uuid-123', 'resolved'))
       .rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('attaches staffNote to in_review transition when note provided', async () => {
+    const report = mockReport('pending');
+    vi.mocked(Report.findByPk).mockResolvedValue(report as any);
+
+    await changeStatus('report-uuid-123', 'in_review', 'Re-opening for review', 'user-uuid');
+
+    expect(report.update).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'in_review',
+      staffNote: 'Re-opening for review',
+      staffNoteBy: 'user-uuid',
+    }));
+  });
+
+  it('sets staffNoteBy to null when note is absent on in_review transition', async () => {
+    const report = mockReport('pending');
+    vi.mocked(Report.findByPk).mockResolvedValue(report as any);
+
+    await changeStatus('report-uuid-123', 'in_review');
+
+    expect(report.update).toHaveBeenCalledWith(expect.objectContaining({
+      staffNote: null,
+      staffNoteBy: null,
+    }));
+  });
+
+  it('attaches note to resolved transition when note provided', async () => {
+    const report = mockReport('in_progress');
+    vi.mocked(Report.findByPk).mockResolvedValue(report as any);
+
+    await changeStatus('report-uuid-123', 'resolved', 'Fixed the pothole');
+
+    expect(report.update).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'resolved',
+      staffNote: 'Fixed the pothole',
+    }));
   });
 });
