@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+const PAGE_SIZE = 20;
 import type { Report } from '../types';
 import {
   getTimeAgo,
@@ -55,6 +57,7 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
   const [inspectTarget, setInspectTarget] = useState<Report | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('criticality');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [page, setPage] = useState(1);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -98,6 +101,8 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
 
     return true;
   });
+
+  useEffect(() => { setPage(1); }, [confidenceFilter, filterCategory, filterCriticality, searchQuery]);
 
   const queue = [...filteredQueue].sort((a, b) => {
     let cmp = 0;
@@ -221,7 +226,7 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
             </tr>
           </thead>
           <tbody>
-            {queue.map((r) => {
+            {queue.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((r) => {
               let badgeDotColor = 'var(--low)';
               if (r.criticality === 'kritik') badgeDotColor = 'var(--critical)';
               else if (r.criticality === 'yuksek') badgeDotColor = 'var(--high)';
@@ -288,6 +293,43 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
           </tbody>
         </table>
       </div>
+
+      {Math.ceil(queue.length / PAGE_SIZE) > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', padding: '16px 0' }}>
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1 }}
+          >
+            ‹
+          </button>
+          {Array.from({ length: Math.ceil(queue.length / PAGE_SIZE) }, (_, i) => i + 1).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              style={{
+                padding: '6px 12px', borderRadius: '6px', cursor: 'pointer',
+                border: '1px solid var(--border)',
+                background: p === page ? '#7c3aed' : 'transparent',
+                color: p === page ? '#fff' : 'inherit',
+                fontWeight: p === page ? 700 : 400,
+              }}
+            >
+              {p}
+            </button>
+          ))}
+          <button
+            onClick={() => setPage((p) => Math.min(Math.ceil(queue.length / PAGE_SIZE), p + 1))}
+            disabled={page === Math.ceil(queue.length / PAGE_SIZE)}
+            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)', cursor: page === Math.ceil(queue.length / PAGE_SIZE) ? 'not-allowed' : 'pointer', opacity: page === Math.ceil(queue.length / PAGE_SIZE) ? 0.4 : 1 }}
+          >
+            ›
+          </button>
+          <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginLeft: '8px' }}>
+            {queue.length} rapor · Sayfa {page}/{Math.ceil(queue.length / PAGE_SIZE)}
+          </span>
+        </div>
+      )}
 
       {inspectTarget && (
         <InspectionModal

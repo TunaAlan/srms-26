@@ -17,6 +17,7 @@ import { InspectionModal } from './components/InspectionModal';
 import { ReviewModal } from './components/ReviewModal';
 import { RejectModal } from './components/RejectModal';
 import { PersonnelPanel } from './components/PersonnelPanel';
+import { ClearAllModal } from './components/ClearAllModal';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -52,6 +53,7 @@ function App() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<Report | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showClearAllModal, setShowClearAllModal] = useState(false);
 
   const [focusedMapReport, setFocusedMapReport] = useState<Report | null>(null);
   const handleViewOnMap = (report: Report) => {
@@ -160,8 +162,8 @@ function App() {
 
   const loadReports = async () => {
     try {
-      const data = await apiFetch('/reports');
-      if (data) setReports(data.map(mapReport));
+      const res = await apiFetch('/reports?pageSize=1000');
+      if (res) setReports((res.data ?? res).map(mapReport));
     } catch (err) {
       console.error('Raporlar yüklenemedi:', err);
     }
@@ -220,6 +222,12 @@ function App() {
     } catch (err) {
       console.error('Yeniden analiz başlatılamadı:', err);
     }
+  };
+
+  const handleClearAll = async () => {
+    await apiFetch('/reports', { method: 'DELETE' });
+    setReports([]);
+    setShowClearAllModal(false);
   };
 
   const handleDeleteConfirm = async (id: string) => {
@@ -332,6 +340,7 @@ function App() {
             onView={(id) => { setSelectedReportId(id); setShowDetailModal(true); }}
             onDelete={(id) => { setDeleteTargetId(id); setShowDeleteModal(true); }}
             onRetry={handleRetryAnalysis}
+            onClearAll={() => setShowClearAllModal(true)}
           />
         )}
 
@@ -404,6 +413,12 @@ function App() {
           onClose={() => { setShowReviewModal(false); setReviewTarget(null); setInspectTarget(null); }}
           onBack={inspectTarget ? () => { setShowReviewModal(false); setReviewTarget(null); setShowInspectModal(true); } : undefined}
           onSave={handleCorrectSave}
+        />
+      )}
+      {showClearAllModal && (
+        <ClearAllModal
+          onClose={() => setShowClearAllModal(false)}
+          onConfirm={handleClearAll}
         />
       )}
       {showRejectModal && rejectTarget && (

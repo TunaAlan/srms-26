@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Report, UserRole } from '../types';
 import { getTimeAgo, getStatusLabel, getCriticalityLabel } from '../utils';
+
+const PAGE_SIZE = 20;
 
 type SortKey = 'category' | 'status' | 'criticality' | 'timestamp';
 type SortDir = 'asc' | 'desc';
@@ -24,6 +26,7 @@ interface ReportsListProps {
   onView: (id: string) => void;
   onDelete: (id: string) => void;
   onRetry: (id: string) => void;
+  onClearAll?: () => void;
 }
 
 export const ReportsList: React.FC<ReportsListProps> = ({
@@ -42,9 +45,11 @@ export const ReportsList: React.FC<ReportsListProps> = ({
   onView,
   onDelete,
   onRetry,
+  onClearAll,
 }) => {
   const [sortKey, setSortKey] = useState<SortKey>('timestamp');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [page, setPage] = useState(1);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -72,6 +77,8 @@ export const ReportsList: React.FC<ReportsListProps> = ({
     return true;
   });
 
+  useEffect(() => { setPage(1); }, [filterStatus, filterCategory, filterCriticality, filterUnit, searchQuery]);
+
   const sorted = [...filtered].sort((a, b) => {
     let cmp = 0;
     if (sortKey === 'category') cmp = a.categoryLabel.localeCompare(b.categoryLabel, 'tr');
@@ -85,6 +92,9 @@ export const ReportsList: React.FC<ReportsListProps> = ({
     if (sortKey !== col) return <span style={{ opacity: 0.3, marginLeft: 4 }}>↕</span>;
     return <span style={{ marginLeft: 4, color: 'var(--primary)' }}>{sortDir === 'asc' ? '↑' : '↓'}</span>;
   };
+
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const thStyle: React.CSSProperties = { cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' };
 
@@ -144,6 +154,14 @@ export const ReportsList: React.FC<ReportsListProps> = ({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
+        {role === 'admin' && onClearAll && (
+          <button
+            onClick={onClearAll}
+            style={{ marginLeft: 'auto', padding: '6px 12px', borderRadius: '6px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', cursor: 'pointer', fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap' }}
+          >
+            🗑 Tümünü Sil
+          </button>
+        )}
       </div>
 
       <div className="table-container">
@@ -176,7 +194,7 @@ export const ReportsList: React.FC<ReportsListProps> = ({
               </tr>
             </thead>
             <tbody>
-              {sorted.map((r) => {
+              {paginated.map((r) => {
                 let badgeDotColor = 'var(--low)';
                 if (r.criticality === 'kritik') badgeDotColor = 'var(--critical)';
                 else if (r.criticality === 'yuksek') badgeDotColor = 'var(--high)';
@@ -264,6 +282,41 @@ export const ReportsList: React.FC<ReportsListProps> = ({
           </table>
         )}
       </div>
+
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', padding: '16px 0', visibility: totalPages > 1 ? 'visible' : 'hidden' }}>
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1 }}
+          >
+            ‹
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              style={{
+                padding: '6px 12px', borderRadius: '6px', cursor: 'pointer',
+                border: '1px solid var(--border)',
+                background: p === page ? 'var(--primary)' : 'transparent',
+                color: p === page ? '#fff' : 'inherit',
+                fontWeight: p === page ? 700 : 400,
+              }}
+            >
+              {p}
+            </button>
+          ))}
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1 }}
+          >
+            ›
+          </button>
+          <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginLeft: '8px' }}>
+            {sorted.length} rapor · Sayfa {page}/{totalPages}
+          </span>
+        </div>
     </>
   );
 };
