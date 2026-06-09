@@ -3,6 +3,7 @@ import { Op, fn, col } from 'sequelize';
 import Report from '../models/Report.js';
 import User from '../models/User.js';
 import { analyzeImage } from './aiService.js';
+import { writePipelineLog } from '../utils/pipelineLogger.js';
 
 const REVIEWER_INCLUDE = {
   model: User,
@@ -73,45 +74,105 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
   });
 
   // Run AI analysis in the background — do not block the response
-  runAiAnalysis(report);
+  void runAiAnalysis(report).catch((err) => {
+    console.error('AI pipeline failed to start:', err);
+  });
 
   return report;
 }
 
 async function runAiAnalysis(report: Report): Promise<void> {
+  const pipelineStartedAt = Date.now();
   await report.update({ aiError: false, status: 'pending' });
-  analyzeImage(report.imagePath)
-    .then((ai) => {
-      if (ai.rejected) {
-        return report.update({
-          aiCategory: 'irrelevant',
-          aiPriority: '0',
-          aiPriorityLabel: 'Irrelevant',
-          aiUnit: '-',
-          aiConfidence: 0,
-          aiDescription: '',
-          rejectReason: ai.rejectReason,
-          reviewStatus: 'rejected',
-          status: 'rejected',
-          aiError: false,
-        });
-      }
-      return report.update({
-        aiCategory: ai.category,
-        aiPriority: String(ai.priority),
-        aiPriorityLabel: ai.priorityLabel,
-        aiUnit: ai.department,
-        aiConfidence: ai.confidence,
-        aiDescription: ai.description,
-        status: 'in_review',
+
+  await writePipelineLog({
+    event: 'ai_pipeline_started',
+    reportId: report.id,
+    reportNumber: report.reportNumber,
+    userId: report.userId,
+    imagePath: report.imagePath,
+    status: 'pending',
+  });
+
+  const aiStartedAt = Date.now();
+
+  try {
+    const ai = await analyzeImage(report.imagePath);
+    const aiFinishedAt = Date.now();
+
+    if (ai.rejected) {
+      await report.update({
+        aiCategory: 'irrelevant',
+        aiPriority: '0',
+        aiPriorityLabel: 'Irrelevant',
+        aiUnit: '-',
+        aiConfidence: 0,
+        aiDescription: '',
+        rejectReason: ai.rejectReason,
+        reviewStatus: 'rejected',
+        status: 'rejected',
         aiError: false,
       });
-    })
-    .catch((err) => {
-      console.error('AI retry error:', err);
-      report.update({ aiError: true, status: 'pending' })
-        .catch(e => console.error('Fallback update failed:', e));
+      const pipelineFinishedAt = Date.now();
+      await writePipelineLog({
+        event: 'ai_pipeline_completed',
+        reportId: report.id,
+        reportNumber: report.reportNumber,
+        userId: report.userId,
+        outcome: 'rejected',
+        status: 'rejected',
+        totalMs: pipelineFinishedAt - pipelineStartedAt,
+        aiCallMs: aiFinishedAt - aiStartedAt,
+        dbUpdateMs: pipelineFinishedAt - aiFinishedAt,
+        rejectReason: ai.rejectReason,
+      });
+      return;
+    }
+
+    await report.update({
+      aiCategory: ai.category,
+      aiPriority: String(ai.priority),
+      aiPriorityLabel: ai.priorityLabel,
+      aiUnit: ai.department,
+      aiConfidence: ai.confidence,
+      aiDescription: ai.description,
+      status: 'in_review',
+      aiError: false,
     });
+    const pipelineFinishedAt = Date.now();
+    await writePipelineLog({
+      event: 'ai_pipeline_completed',
+      reportId: report.id,
+      reportNumber: report.reportNumber,
+      userId: report.userId,
+      outcome: 'classified',
+      status: 'in_review',
+      totalMs: pipelineFinishedAt - pipelineStartedAt,
+      aiCallMs: aiFinishedAt - aiStartedAt,
+      dbUpdateMs: pipelineFinishedAt - aiFinishedAt,
+      aiCategory: ai.category,
+      aiPriority: String(ai.priority),
+      aiConfidence: ai.confidence,
+    });
+  } catch (err) {
+    const failedAt = Date.now();
+    console.error('AI retry error:', err);
+    await report.update({ aiError: true, status: 'pending' })
+      .catch(e => console.error('Fallback update failed:', e));
+    const pipelineFinishedAt = Date.now();
+    await writePipelineLog({
+      event: 'ai_pipeline_completed',
+      reportId: report.id,
+      reportNumber: report.reportNumber,
+      userId: report.userId,
+      outcome: 'failed',
+      status: 'pending',
+      totalMs: pipelineFinishedAt - pipelineStartedAt,
+      aiCallMs: failedAt - aiStartedAt,
+      dbUpdateMs: pipelineFinishedAt - failedAt,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 export async function retryAnalysis(id: string): Promise<Report> {
@@ -119,7 +180,9 @@ export async function retryAnalysis(id: string): Promise<Report> {
   if (report.status !== 'pending') {
     throw Object.assign(new Error('Only pending reports can be retried'), { statusCode: 400 });
   }
-  runAiAnalysis(report);
+  void runAiAnalysis(report).catch((err) => {
+    console.error('AI pipeline failed to start:', err);
+  });
   return report;
 }
 

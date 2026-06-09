@@ -18,7 +18,7 @@ AutoTokenizer.from_pretrained('distilbert-base-uncased'); \
 print('DistilBERT tokenizer indirildi.')"
 
 # Uygulama dosyalari
-COPY app.py main.py text_classifier_v0.9.1.onnx ./
+COPY app.py main.py text_classifier_v10.onnx ./
 
 EXPOSE 8000
 
