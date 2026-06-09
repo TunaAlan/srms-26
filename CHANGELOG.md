@@ -9,6 +9,224 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.6.5] - 2026-06-09
+
+### Client Admin — Accessibility Fix: Interactive `<div>` → `<button>`
+
+#### Motivation
+
+E2E test authoring exposed four places where clickable `<div>` elements were used as interactive controls. These pass a visual check but break keyboard navigation (Tab/Enter), screen readers, and `getByRole('button')` queries in Playwright. All four replaced with semantic `<button>` elements; CSS reset rules added so existing styles are unaffected.
+
+#### Changed files
+
+| File | Element | Role |
+|---|---|---|
+| `NavTabs.tsx` | `.nav-tab` | Primary navigation tabs |
+| `Dashboard.tsx` | review queue action card | "İncelemeye Başla" shortcut |
+| `PhotoLightbox.tsx` | image zoom trigger | Opens fullscreen lightbox |
+| `Topbar.tsx` | `.user-dropdown-item` | Logout menu item |
+
+CSS: `border: none`, `background: none`, `font-family: inherit` reset added to `.nav-tab` and `.user-dropdown-item` so `<button>` default styles do not bleed through.
+
+---
+
+### Client Admin — Frontend Test Suite
+
+#### Motivation
+
+The frontend had no automated tests. Business logic in `utils.ts` and `api.ts` was verified only by manual browser testing; component interactions — confirmation dialogs, form validation, status transitions — were entirely uncovered. The suite adds two layers: unit tests for pure functions and component tests for interactive UI behaviour. E2E (Playwright) is planned but not yet implemented.
+
+---
+
+#### Test Categories and Methodology
+
+| Layer | Files | Box |
+|---|---|---|
+| **Unit** | `utils.test.ts`, `api.test.ts` | Whitebox — all internal branches exercised with full implementation knowledge |
+| **Component** | 8 `*.test.tsx` files | Whitebox — props/callbacks are the public API; internal React state is known but not inspected directly |
+| **E2E** | *(planned — Playwright)* | Blackbox — browser drives the full stack, no internal knowledge assumed |
+
+---
+
+#### Why Vitest + React Testing Library
+
+`client-admin` is a Vite project with `"type": "module"`. Jest requires `--experimental-vm-modules` and a `.cjs` config to run ESM — fragile and breaks on minor Node/TypeScript bumps. Vitest is Vite-native: same config file, same module resolution, zero extra glue.
+
+React Testing Library was chosen over Enzyme because it queries the DOM the way a user would (`getByRole`, `getByPlaceholderText`) rather than by component internals. Tests survive refactors that preserve behaviour but change internal structure.
+
+---
+
+#### Added — Packages
+
+- `@testing-library/react` — renders React components into jsdom.
+- `@testing-library/user-event` — simulates real user interactions (full browser event sequence: pointerdown → mousedown → click).
+- `@testing-library/jest-dom` — DOM-aware matchers: `toBeInTheDocument()`, `toBeDisabled()`, `toHaveTextContent()`.
+- `src/__tests__/setup.ts` — imports `jest-dom` and stubs `__APP_VERSION__` (Vite's `define` replacement never runs in jsdom).
+- `src/__tests__/helpers.ts` — `makeReport(overrides?)` factory; tests override only the fields relevant to each scenario.
+
+---
+
+#### Unit Tests
+
+**`utils.test.ts`** — 36 tests
+
+| Group | Coverage | Why |
+|---|---|---|
+| `getTimeAgo` | 5 boundary cases | `Date.now` frozen — without frozen time results are non-deterministic |
+| `getStatusLabel` / `getCriticalityLabel` / `getReviewStatusLabel` / `getRoleLabel` | All known keys + unknown passthrough | Unknown keys must pass through, not blank — missing labels surface as the raw API value |
+| `CATEGORY_LABEL_MAP` | All 14 AI category keys present and non-empty | Map completeness test fails immediately if the AI service adds a new category without a map entry |
+| `mapReport` | 8 scenarios | `aiUnit` normalisation, `aiDescription`/`rejectReason` fallback, null JOIN fields → `null` not `undefined`, `aiPriority` → `criticality` for all 5 values |
+| `getConfidenceColor` / `getConfidenceLabel` | null + 3 thresholds + rounding | `0.876` → `"88%"` verifies `Math.round` over `toFixed` |
+
+Not covered: `mapPriority` and `_STATUS_TO_UI` are private (unexported) — tested indirectly through `mapReport`.
+
+---
+
+**`api.test.ts`** — 12 tests
+
+| Group | Coverage | Why |
+|---|---|---|
+| `getToken` | Empty localStorage → `""` | Callers concatenate the result; `null` would produce `"null"` in the `Authorization` header |
+| `logout` | Server called / skipped / token cleared even on network failure | The `finally` block must clear tokens regardless — a failed logout must not leave a live session in localStorage |
+| `login` | admin ✓, review_personnel ✓, user role → throws, wrong credentials → server message | Role enforcement happens client-side after a valid 200 response |
+| `apiFetch` | Successful GET + header check, 204 → null, non-ok → throws, 401 → refresh → retry, refresh failure → clears tokens | The `catch` branch inside the refresh flow was entirely invisible before this test |
+
+Not covered: `fetchStaff`, `createStaff`, `setStaffActive`, `deleteStaff`, `retryReportAnalysis`, `changeReportStatus` — all are thin `apiFetch` wrappers with no branching logic. The meaningful surface is inside `apiFetch` itself. Concurrent 401 queue (`refreshQueue`) requires two simultaneous in-flight requests; better suited to E2E.
+
+---
+
+#### Component Tests
+
+**`DeleteModal.test.tsx`** — 4 tests
+Renders description, ✕ and "İptal" call `onClose`, "Sil" calls `onConfirm(report.id)`. No dynamic state — all interactions are one-shot prop callbacks; no further scenarios exist.
+
+**`ClearAllModal.test.tsx`** — 6 tests
+Covers warning render, cancel buttons, confirm call, both buttons disabled during in-flight `onConfirm` (tested with a never-resolving promise), buttons re-enabled after resolution. The loading state test is critical: the `finally` block must reset `loading` regardless of success or failure.
+
+Not covered: `onConfirm` rejection — the component has no error UI; if error handling is added later a test should follow.
+
+**`RejectModal.test.tsx`** — 7 tests
+Submit disabled when empty, disabled for whitespace-only input (verifies `.trim()` guard — spaces would otherwise reach the backend as a non-empty `rejectReason`), enabled with valid text, `onConfirm(id, trimmedReason)`, `onClose` vs `onBack` button label swap.
+
+**`ReviewModal.test.tsx`** — 6 tests
+Pre-selected category, unit auto-derived from `CATEGORY_TO_UNIT` map (`road_damage` → `Fen İşleri`), unit updates on category change, two-step confirm flow (save → confirm screen → back → save again), `onSave` called with correct args.
+
+**`DetailModal.test.tsx`** — 9 tests
+Description render, dropdown hidden for `review_personnel` and for statuses with no transitions (`pending`), `▾` indicator visible for admin + `in_progress`, transition options appear on click, note textarea + Onayla/Vazgeç after selecting a transition, `onChangeStatus(id, status, note)` on confirm, Vazgeç dismisses panel, `rejectReason` banner for rejected reports.
+
+Not covered: `onViewOnMap` — a presentational navigation shortcut with no state mutation; belongs in E2E.
+
+**`InspectionModal.test.tsx`** — 8 tests
+Action buttons for both roles, two-click approve flow (first click → confirm screen only; `onApprove` not called until second click — guards against misclick), `onCorrect(report)` + `onClose`, `onReject(report)` + `onClose`, back navigation from confirm screen.
+
+**`LoginScreen.test.tsx`** — 9 tests
+Email and password inputs, submit disabled for empty / partial / loading states, `onLogin(email, password)` called on submit, no call when fields empty, error message displayed.
+
+Note: `LoginScreen` labels have no `htmlFor`/`id` association — queries use `getByPlaceholderText` instead of `getByLabelText`.
+
+**`Dashboard.test.tsx`** — 11 tests
+Admin: 7 stat cards (`container.querySelectorAll('.stat-card')`), correct total and `İncelemede` counts (queried via `.stat-label` NodeList to avoid badge ambiguity), critical count excluding resolved/rejected, `onTabChange('review')` on shortcut click.
+Review personnel: hero banner with pending count, 4 reviewer KPI cards, `Toplam` absent, `onTabChange('review')` on "İncelemeye Başla", low-confidence count via `parentElement` traversal.
+
+Not covered (by design): `Reports`, `ReviewQueue`, `PersonnelPanel` — large table components where meaningful coverage requires the full filter → sort → paginate → click workflow. That belongs in E2E, not component tests.
+
+---
+
+#### E2E — Playwright
+
+Full browser test suite implemented in `e2e/` using Playwright + Chromium. Tests run sequentially (`workers: 1`) to avoid shared DB state conflicts.
+
+| Spec file | Tests | Coverage |
+|---|---|---|
+| `auth.spec.ts` | 4 | Admin login, reviewer login, wrong password, citizen account rejected |
+| `admin.spec.ts` | 8 | Reports tab, status filter, map view, status change, personnel CRUD (create/toggle/delete) |
+| `review.personnel.spec.ts` | 6 | Queue loads, approve removes row, reject requires reason, correct saves category, confidence filter |
+
+`seed.ts` extended with a `citizen@test.com` test user to cover the access-denied scenario in `auth.spec.ts`.
+
+---
+
+#### Coverage Summary
+
+```
+utils.ts        100% lines / 100% branches
+api.ts           ~85% lines /  ~80% branches (thin wrappers excluded)
+─────────────────────────────────────────────────────────────────
+Component layer  behaviour-based (no line coverage target)
+```
+
+---
+
+### Service Core — Delete All Reports Endpoint
+
+#### Added
+- `DELETE /reports` — destroys all report rows and removes every associated image file from disk. Restricted to `admin` role via `authorize('admin')` middleware. Returns `204 No Content` on success.
+- `clearAllReports()` service function — iterates over all reports, calls `fs/promises unlink` for each `imagePath`, then calls `Report.destroy({ where: {} })`. File deletion errors are caught per-report so a missing file does not abort the batch.
+- Route registered before `/:id` to prevent Express from interpreting the empty path segment as an ID parameter.
+
+#### Changed
+- `getAllReports` return type changed from `Report[]` to `PaginatedReports` — a new interface `{ data: Report[]; total: number; page: number; pageSize: number; totalPages: number }`. Accepts `page` and `pageSize` as optional query parameters; defaults to `page=1`, `pageSize=20`. Existing callers that pass `pageSize=1000` continue to receive all records in a single response.
+- `ListFilter` extended with optional `page` and `pageSize` fields.
+
+---
+
+### Client Admin — Pagination
+
+#### Motivation
+
+With the report dataset growing, an unbounded list becomes unusable: every scroll interaction re-renders all rows, and the table height becomes unpredictable. Pagination caps the visible row count at a fixed `PAGE_SIZE`, keeps render cost constant, and gives users a clear position signal ("17 rapor · Sayfa 1/4").
+
+Client-side pagination was chosen over server-side because the admin loads all records once on mount (`pageSize=1000`) and needs to filter, sort, and count locally without round-trips. The pagination layer operates on the already-filtered, already-sorted slice.
+
+---
+
+#### Added
+
+**Reports tab**
+- `PAGE_SIZE = 20` constant. `page` state, reset to `1` via `useEffect` whenever any filter or search query changes.
+- `paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)` — table renders only the current page's rows.
+- Pagination bar: ‹ prev · numbered page buttons · next › with "N rapor · Sayfa X/Y" counter. Hidden (`visibility: hidden`) when `totalPages <= 1` to hold layout position without shifting surrounding content.
+
+**ReviewQueue tab**
+- Same `PAGE_SIZE = 20` and `page` state pattern applied independently — the queue filter (confidence + category + criticality + search) resets the page counter on change.
+- Pagination bar rendered below the table when `Math.ceil(queue.length / PAGE_SIZE) > 1`.
+
+#### Changed
+- `loadReports` in `App.tsx` updated to unwrap the new paginated response shape: `(res.data ?? res).map(mapReport)` — the `?? res` fallback retains compatibility if the server is running an older build.
+
+---
+
+### Client Admin — Delete All Reports
+
+#### Added
+- `ClearAllModal` component (`src/components/ClearAllModal.tsx`) — confirmation dialog before bulk deletion. Uses the same `modal`, `modal-header`, `modal-body`, `modal-footer`, `delete-confirm` CSS class structure as `DeleteModal`. Has an in-flight loading state ("Siliniyor…") to prevent double-submission.
+- "Tümünü Sil" button in the Reports tab filter bar, visible only to `admin` role. Positioned with `marginLeft: auto` to stay at the trailing edge of the filter row.
+- `showClearAllModal` boolean state and `handleClearAll` async handler in `App.tsx` — calls `DELETE /reports`, then clears local `reports` state on success.
+
+---
+
+### Service Core — Unit Test Coverage Expansion
+
+#### Added
+Two additional edge case tests in `tests/unit/reportService.test.ts`:
+
+- `createReport` — fallback `update` also throws when AI is unavailable and DB is down; verifies no unhandled rejection propagates (the nested `.catch` silently swallows the second error).
+- `reviewReport` — `aiCategory`, `aiPriority`, `aiUnit`, and `reviewedBy` fields are all persisted correctly when passed in a `corrected` review.
+
+---
+
+### Client Admin — Frontend Test Infrastructure
+
+#### Added
+- `vitest` and `@vitest/coverage-v8` added to `devDependencies`.
+- `jsdom` added to `devDependencies` — provides a browser-like DOM environment for component and utility tests.
+- `vite.config.ts` import changed from `vite` to `vitest/config`; `test: { environment: 'jsdom', globals: true }` block added.
+- `package.json` scripts: `test` (single run via `vitest run`), `test:watch` (interactive file-watch mode).
+
+Note: all additions are `devDependencies`. The production Docker build (`npm ci --omit=dev`) is unaffected; no server restart is needed.
+
+---
+
 ## [0.6.4] - 2026-05-13
 
 ### Client Admin — Branding Update
@@ -114,8 +332,6 @@ Overall               85% lines  /  68% branches
 Remaining uncovered branches: `aiService.ts` (external Gemini API — not testable in isolation), `errorHandler.ts` (no business logic), `reportService` line 103 (nested `.catch` inside fire-and-forget AI call).
 
 ---
-
-## [0.6.3] - 2026-05-05
 
 ### Security — Refresh Token Architecture
 
