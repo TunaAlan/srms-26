@@ -1,6 +1,7 @@
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import {
@@ -183,6 +184,7 @@ export default function LoginScreen() {
 
           {/* Footer */}
           <Text style={styles.footer}>Altyapı Bildirim Sistemi</Text>
+          <Text style={styles.version}>v{Constants.expoConfig?.version}</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -326,5 +328,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: "auto",
     paddingVertical: 24,
+  },
+  version: {
+    textAlign: "center",
+    color: theme.colors.textTertiary,
+    fontSize: 11,
+    opacity: 0.55,
+    marginTop: -16,
+    paddingBottom: 16,
   },
 });

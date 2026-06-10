@@ -1,10 +1,12 @@
 import { theme } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -75,17 +77,11 @@ export default function RegisterScreen() {
         >
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.logoCircle}>
-              <Ionicons
-                name="shield-checkmark"
-                size={48}
-                color={theme.colors.primary}
-              />
-            </View>
-            <Text style={styles.headerTitle}>ABB</Text>
-            <Text style={styles.headerSubtitle}>
-              Altyapı Bildirim Sistemi
-            </Text>
+            <Image
+              source={require("../assets/images/srms_logo_white_bg.png")}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
 
           {/* Form Card */}
@@ -229,7 +225,8 @@ export default function RegisterScreen() {
           </View>
 
           {/* Footer */}
-          <Text style={styles.footer}>Ankara Büyükşehir Belediyesi</Text>
+          <Text style={styles.footer}>Altyapı Bildirim Sistemi</Text>
+          <Text style={styles.version}>v{Constants.expoConfig?.version}</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -256,30 +253,11 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-    elevation: 4,
-    shadowColor: "rgba(0,0,0,0.2)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    letterSpacing: 1,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.75)",
-    marginTop: 4,
+  logoImage: {
+    width: 220,
+    height: 220,
+    marginBottom: 18,
+    marginTop: 18,
   },
   formCard: {
     backgroundColor: theme.colors.white,
@@ -375,5 +353,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: "auto",
     paddingVertical: 24,
+  },
+  version: {
+    textAlign: "center",
+    color: theme.colors.textTertiary,
+    fontSize: 11,
+    opacity: 0.55,
+    marginTop: -16,
+    paddingBottom: 16,
   },
 });

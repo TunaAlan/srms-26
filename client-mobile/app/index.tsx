@@ -165,6 +165,7 @@ export default function HomeScreen() {
         </View>
 
         <Text style={styles.footer}>Altyapı Bildirim Sistemi</Text>
+        <Text style={styles.version}>v{Constants.expoConfig?.version}</Text>
       </View>
 
       <Modal
@@ -453,5 +454,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: "auto",
     paddingBottom: 24,
+  },
+  version: {
+    textAlign: "center",
+    color: theme.colors.textTertiary,
+    fontSize: 11,
+    opacity: 0.55,
+    marginTop: -16,
+    paddingBottom: 16,
   },
 });
