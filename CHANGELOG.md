@@ -34,7 +34,7 @@ CSS: `border: none`, `background: none`, `font-family: inherit` reset added to `
 
 #### Motivation
 
-The frontend had no automated tests. Business logic in `utils.ts` and `api.ts` was verified only by manual browser testing; component interactions — confirmation dialogs, form validation, status transitions — were entirely uncovered. The suite adds two layers: unit tests for pure functions and component tests for interactive UI behaviour. E2E (Playwright) is planned but not yet implemented.
+The frontend had no automated tests. Business logic in `utils.ts` and `api.ts` was verified only by manual browser testing; component interactions — confirmation dialogs, form validation, status transitions — were entirely uncovered. The suite adds three layers: unit tests for pure functions, component tests for interactive UI behaviour, and an E2E (Playwright) suite covering full user workflows.
 
 ---
 
@@ -44,7 +44,7 @@ The frontend had no automated tests. Business logic in `utils.ts` and `api.ts` w
 |---|---|---|
 | **Unit** | `utils.test.ts`, `api.test.ts` | Whitebox — all internal branches exercised with full implementation knowledge |
 | **Component** | 8 `*.test.tsx` files | Whitebox — props/callbacks are the public API; internal React state is known but not inspected directly |
-| **E2E** | *(planned — Playwright)* | Blackbox — browser drives the full stack, no internal knowledge assumed |
+| **E2E** | 3 `*.spec.ts` files (Playwright) | Blackbox — browser drives the full stack, no internal knowledge assumed |
 
 ---
 
@@ -68,7 +68,7 @@ React Testing Library was chosen over Enzyme because it queries the DOM the way 
 
 #### Unit Tests
 
-**`utils.test.ts`** — 36 tests
+**`utils.test.ts`** — 33 tests
 
 | Group | Coverage | Why |
 |---|---|---|
@@ -82,7 +82,7 @@ Not covered: `mapPriority` and `_STATUS_TO_UI` are private (unexported) — test
 
 ---
 
-**`api.test.ts`** — 12 tests
+**`api.test.ts`** — 15 tests
 
 | Group | Coverage | Why |
 |---|---|---|
@@ -111,7 +111,7 @@ Submit disabled when empty, disabled for whitespace-only input (verifies `.trim(
 **`ReviewModal.test.tsx`** — 6 tests
 Pre-selected category, unit auto-derived from `CATEGORY_TO_UNIT` map (`road_damage` → `Fen İşleri`), unit updates on category change, two-step confirm flow (save → confirm screen → back → save again), `onSave` called with correct args.
 
-**`DetailModal.test.tsx`** — 9 tests
+**`DetailModal.test.tsx`** — 10 tests
 Description render, dropdown hidden for `review_personnel` and for statuses with no transitions (`pending`), `▾` indicator visible for admin + `in_progress`, transition options appear on click, note textarea + Onayla/Vazgeç after selecting a transition, `onChangeStatus(id, status, note)` on confirm, Vazgeç dismisses panel, `rejectReason` banner for rejected reports.
 
 Not covered: `onViewOnMap` — a presentational navigation shortcut with no state mutation; belongs in E2E.
@@ -119,7 +119,7 @@ Not covered: `onViewOnMap` — a presentational navigation shortcut with no stat
 **`InspectionModal.test.tsx`** — 8 tests
 Action buttons for both roles, two-click approve flow (first click → confirm screen only; `onApprove` not called until second click — guards against misclick), `onCorrect(report)` + `onClose`, `onReject(report)` + `onClose`, back navigation from confirm screen.
 
-**`LoginScreen.test.tsx`** — 9 tests
+**`LoginScreen.test.tsx`** — 10 tests
 Email and password inputs, submit disabled for empty / partial / loading states, `onLogin(email, password)` called on submit, no call when fields empty, error message displayed.
 
 Note: `LoginScreen` labels have no `htmlFor`/`id` association — queries use `getByPlaceholderText` instead of `getByLabelText`.
