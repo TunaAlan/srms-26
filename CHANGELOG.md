@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.6.6] - 2026-06-10
+
+### Client Mobile — Dynamic Version Display & UI Consistency
+
+- Added a dynamic version label (`v{Constants.expoConfig?.version}`, read from `app.json`) to the bottom of the login, register, and home screens, mirroring client-admin's `v{__APP_VERSION__}` display.
+- Reworked the register screen header to match login: SRMS logo image and "Altyapı Bildirim Sistemi" footer text, replacing the old icon-circle header.
+- Restored the gallery photo picker (Camera/Gallery buttons) on the report submission screen - for testing.
+
+### Client Admin & Client Mobile — Polling Interval Optimization
+
+- Reduced the fast polling interval for pending reports from 8s to 4s in both `client-admin/src/App.tsx` and `client-mobile/context/ReportContext.tsx`, so AI pipeline results (~4s average) are typically caught on the first poll. The 20s background polling interval is unchanged.
+
+---
+
 ## [0.6.5] - 2026-06-09
 
 ### Client Admin — Accessibility Fix: Interactive `<div>` → `<button>`

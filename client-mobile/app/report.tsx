@@ -107,6 +107,14 @@ export default function ReportScreen() {
     if (!result.canceled) setImage(result.assets[0].uri);
   };
 
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      quality: 0.7,
+      allowsEditing: true,
+    });
+    if (!result.canceled) setImage(result.assets[0].uri);
+  };
+
   const selectedCat = CATEGORIES.find((c) => c.id === category);
 
   const handleSubmit = async () => {
@@ -157,15 +165,20 @@ export default function ReportScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            <TouchableOpacity style={styles.singleCameraBtn} onPress={takePhoto} activeOpacity={0.8}>
-              <View style={styles.singleCameraIconWrap}>
-                <Ionicons name="camera" size={36} color={theme.colors.primary} />
-              </View>
-              <Text style={styles.singleCameraTitle}>Fotoğraf Çek</Text>
-              <Text style={styles.singleCameraSubtitle}>
-                Bildirmek istediğiniz durumu anlık olarak çekin
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.photoRow}>
+              <TouchableOpacity style={styles.photoBtn} onPress={takePhoto}>
+                <View style={styles.photoBtnIcon}>
+                  <Ionicons name="camera" size={24} color={theme.colors.primary} />
+                </View>
+                <Text style={styles.photoBtnText}>Kamera</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.photoBtn} onPress={pickImage}>
+                <View style={styles.photoBtnIcon}>
+                  <Ionicons name="images" size={24} color={theme.colors.primary} />
+                </View>
+                <Text style={styles.photoBtnText}>Galeri</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -317,37 +330,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
   },
-  // Yeni, geniş ve büyük kamera butonu tasarımı
-  singleCameraBtn: {
-    width: "100%",
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.lg,
-    paddingVertical: 36,
-    paddingHorizontal: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
-    borderStyle: "dashed",
+  photoRow: {
+    flexDirection: "row",
     gap: 12,
   },
-  singleCameraIconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+  photoBtn: {
+    flex: 1,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    padding: 20,
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    borderStyle: "dashed",
+  },
+  photoBtnIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: theme.colors.primaryLight,
     justifyContent: "center",
     alignItems: "center",
   },
-  singleCameraTitle: {
+  photoBtnText: {
     color: theme.colors.primary,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  singleCameraSubtitle: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    textAlign: "center",
+    fontSize: 14,
+    fontWeight: "600",
   },
   imageWrapper: {
     position: "relative",

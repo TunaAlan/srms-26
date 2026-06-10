@@ -101,7 +101,7 @@ function App() {
     const hasPending = reports.some((r) => r.status === 'pending');
     if (hasPending) {
       if (!pollRef.current) {
-        pollRef.current = setInterval(loadReports, 8000);
+        pollRef.current = setInterval(loadReports, 4000);
       }
     } else {
       if (pollRef.current) {

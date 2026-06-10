@@ -45,7 +45,7 @@ export function ReportProvider({ children }: { children: ReactNode }) {
     const hasPending = reports.some((r) => r.status === 'pending' || r.status === 'in_review');
     if (hasPending) {
       if (!pollRef.current) {
-        pollRef.current = setInterval(fetchReports, 8000);
+        pollRef.current = setInterval(fetchReports, 4000);
       }
     } else {
       if (pollRef.current) {
